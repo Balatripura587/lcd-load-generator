@@ -1,0 +1,101 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lcs-locust-sa
+  namespace: lcs-perf-testing
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: lcs-locust-metadata
+rules:
+  - apiGroups: ["config.openshift.io"]
+    resources: ["clusterversions", "infrastructures", "networks"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: lcs-locust-metadata
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: lcs-locust-metadata
+subjects:
+  - kind: ServiceAccount
+    name: lcs-locust-sa
+    namespace: lcs-perf-testing
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lcs-load-generator
+  namespace: lcs-perf-testing
+  labels:
+    app: lcs-load-generator
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: lcs-load-generator
+    spec:
+      serviceAccountName: lcs-locust-sa
+      restartPolicy: Never
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - lightspeed-core-service
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: lcs-load-generator
+          image: quay.io/rh-ee-bbodapat/lcs-load-generator:latest
+          env:
+            - name: LCS_HOST
+              value: "http://lcs.lcs-perf-testing.svc.cluster.local:8080"
+            - name: LCS_TOKEN
+              value: ""
+            - name: LCS_PROVIDER
+              value: "openai"
+            - name: LCS_MODEL
+              value: "granite-3.1-8b-instruct"
+            - name: LOCUST_USERS
+              value: "5"
+            - name: LOCUST_RUN_TIME
+              value: "1m"
+            - name: LOCUST_PROCESSES
+              value: "1"
+            - name: TEST_UUID
+              value: ""
+            - name: REQUEST_TIMEOUT
+              value: "120"
+            - name: RESULTS_DIR
+              value: "/results"
+            - name: QUESTIONS_FILE
+              value: "/opt/lcs-load-generator/locust/assets/questions.yaml"
+            - name: ES_SERVER
+              value: ""
+            - name: ES_INDEX
+              value: "lcs-perf-results"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: results
+              mountPath: /results
+          imagePullPolicy: Always
+      volumes:
+        - name: results
+          emptyDir: {}
