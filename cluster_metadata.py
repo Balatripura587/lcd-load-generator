@@ -6,11 +6,18 @@ logger = logging.getLogger(__name__)
 
 def _run(cmd: str) -> str:
     try:
+        logger.debug("Running: %s", cmd)
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, timeout=15
         )
-        return result.stdout.strip().strip("'\"")
-    except Exception:
+        value = result.stdout.strip().strip("'\"")
+        if result.returncode != 0:
+            logger.debug("Command failed (rc=%d): %s", result.returncode, result.stderr.strip())
+        else:
+            logger.debug("Result: %s", value)
+        return value
+    except Exception as e:
+        logger.debug("Command exception: %s", e)
         return ""
 
 
@@ -67,6 +74,9 @@ def get_cluster_metadata() -> dict:
     metadata["totalWorkerMemoryKi"] = total_mem_ki
 
     if not metadata["clusterVersion"]:
-        logger.warning("Could not collect OCP metadata — oc may not be available")
+        logger.warning("Could not collect OCP metadata — oc may not be available or not logged in")
+    else:
+        logger.debug("Collected metadata: cluster=%s platform=%s workers=%d",
+                      metadata["clusterVersion"], metadata["platform"], metadata["workerNodesCount"])
 
     return metadata

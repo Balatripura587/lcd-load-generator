@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 
 from locust import events
@@ -7,6 +8,8 @@ from locust.runners import MasterRunner, WorkerRunner
 from lib.config import ENDPOINT_TYPE, TEST_UUID
 from lib.indexer import index_results
 from lib.types import build_result_document
+
+logger = logging.getLogger("lcs.metrics")
 
 _test_start_time: float = 0.0
 
@@ -87,22 +90,32 @@ def _on_worker_report(client_id, data, **kwargs):
 def on_test_start(environment, **kwargs):
     global _test_start_time
     _test_start_time = time.time()
+    logger.info("Test started: endpoint=%s uuid=%s host=%s",
+                ENDPOINT_TYPE, TEST_UUID, environment.host)
 
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
     if isinstance(environment.runner, WorkerRunner):
+        logger.debug("Worker process, skipping result generation")
         return
 
     test_end_time = time.time()
+    elapsed = test_end_time - _test_start_time
     stats = environment.stats.total
 
     if isinstance(environment.runner, MasterRunner):
         ttft = _aggregated_ttft_samples
         stream = _aggregated_stream_time_samples
+        logger.debug("Using aggregated samples from %d workers", len(ttft))
     else:
         ttft = _local_ttft_samples
         stream = _local_stream_time_samples
+
+    logger.info("Test stopped: requests=%d failures=%d elapsed=%.1fs",
+                stats.num_requests, stats.num_failures, elapsed)
+    logger.debug("Status codes: %s", get_status_codes())
+    logger.debug("Bytes stats: in=%.1f out=%.1f", *get_bytes_stats())
 
     results = build_result_document(
         stats, environment, _test_start_time, test_end_time, ttft, stream,

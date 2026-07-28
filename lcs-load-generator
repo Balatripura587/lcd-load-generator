@@ -10,10 +10,14 @@ Usage:
 
 import argparse
 import json
+import logging
 import os
 import subprocess
+import sys
 import time
 import uuid
+
+logger = logging.getLogger("lcs")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _candidate = os.path.join(SCRIPT_DIR, "locust")
@@ -26,8 +30,18 @@ def _env_or(name, default):
     return os.environ.get(name) or default
 
 
+def _setup_logging(debug=False, quiet=False):
+    level = logging.WARNING if quiet else logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    logger.debug("Log level set to %s", logging.getLevelName(level))
+
+
 def _resolve_config(args):
-    return {
+    cfg = {
         "uuid": args.uuid or _env_or("TEST_UUID", str(uuid.uuid4())),
         "host": args.host or _env_or("LCS_HOST", "http://localhost:8080"),
         "token": args.token or _env_or("LCS_TOKEN", ""),
@@ -43,6 +57,8 @@ def _resolve_config(args):
         "questions_file": args.questions_file or _env_or("QUESTIONS_FILE", ""),
         "locustfile": args.locustfile or os.path.join(LOCUST_DIR, "locustfile.py"),
     }
+    logger.debug("Resolved config: %s", {k: v for k, v in cfg.items() if k != "token"})
+    return cfg
 
 
 def _run_endpoint(endpoint, index, total, cfg):
@@ -64,7 +80,7 @@ def _run_endpoint(endpoint, index, total, cfg):
         env["QUESTIONS_FILE"] = cfg["questions_file"]
 
     locust_cmd = [
-        "locust", "-f", cfg["locustfile"],
+        sys.executable, "-m", "locust", "-f", cfg["locustfile"],
         "--host", cfg["host"],
         "--users", str(cfg["users"]),
         "--spawn-rate", str(cfg["users"]),
@@ -77,9 +93,15 @@ def _run_endpoint(endpoint, index, total, cfg):
     if cfg["processes"] > 1:
         locust_cmd.extend(["--processes", str(cfg["processes"])])
 
+    logger.debug("Locust command: %s", " ".join(locust_cmd))
+    logger.debug("Environment overrides: ENDPOINT_TYPE=%s TEST_UUID=%s ES_SERVER=%s",
+                 endpoint, cfg["uuid"], cfg["es_server"] or "disabled")
+
     result = subprocess.run(locust_cmd, env=env)
     if result.returncode != 0:
-        print(f"[LCS] WARNING: {endpoint} test exited with code {result.returncode}")
+        logger.warning("%s test exited with code %d", endpoint, result.returncode)
+    else:
+        logger.debug("%s test completed successfully", endpoint)
 
 
 def _build_job_summary(test_uuid, start_time, end_time, metadata):
@@ -98,22 +120,23 @@ def _build_job_summary(test_uuid, start_time, end_time, metadata):
 def _index_job_summary(test_uuid, start_time, end_time, cfg):
     from cluster_metadata import get_cluster_metadata
 
+    logger.debug("Collecting cluster metadata via oc commands")
     metadata = get_cluster_metadata()
     if not metadata.get("clusterVersion"):
-        print("[LCS] No cluster metadata available, skipping jobSummary")
+        logger.warning("No cluster metadata available, skipping jobSummary")
         return
 
+    logger.debug("Cluster metadata: %s", metadata)
     job_summary = _build_job_summary(test_uuid, start_time, end_time, metadata)
 
     summary_file = os.path.join(cfg["results_dir"], f"jobSummary-{test_uuid}.json")
     with open(summary_file, "w") as f:
         json.dump(job_summary, f, indent=2)
-    print(f"[LCS] Job summary written to {summary_file}")
+    logger.info("Job summary written to %s", summary_file)
 
     os.environ.setdefault("TEST_UUID", test_uuid)
     os.environ["ES_SERVER"] = cfg["es_server"]
     os.environ["ES_INDEX"] = cfg["es_index"]
-    import sys
     sys.path.insert(0, LOCUST_DIR)
     from lib.indexer import index_results
     index_results(job_summary)
@@ -165,6 +188,8 @@ def main():
         prog="lcs-load-generator",
         description="Load generator for LightSpeed Core Service",
     )
+    parser.add_argument("-D", action="store_true", help="print debugging logs")
+    parser.add_argument("-W", action="store_true", help="quieter log output")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="Run load tests on all LCS endpoints")
@@ -184,6 +209,7 @@ def main():
     run_parser.add_argument("--locustfile", default="", help="Path to locustfile.py")
 
     args = parser.parse_args()
+    _setup_logging(debug=args.D, quiet=args.W)
 
     if args.command == "run":
         run_action(args)

@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import time
 
@@ -7,6 +8,8 @@ from locust import HttpUser, constant, events, task
 from lib.config import LCS_MODEL, LCS_PROVIDER, LCS_TOKEN, REQUEST_TIMEOUT
 from lib.metrics import record_bytes, record_stream_time, record_ttft
 from lib.questions import QUESTIONS
+
+logger = logging.getLogger("lcs.users")
 
 
 class LCSBaseUser(HttpUser):
@@ -18,6 +21,8 @@ class LCSBaseUser(HttpUser):
         self.headers = {"Content-Type": "application/json"}
         if LCS_TOKEN:
             self.headers["Authorization"] = f"Bearer {LCS_TOKEN}"
+        logger.debug("User started: provider=%s model=%s token=%s",
+                      LCS_PROVIDER, LCS_MODEL, "set" if LCS_TOKEN else "none")
 
 
 class LCSQueryClient(LCSBaseUser):
@@ -47,12 +52,16 @@ class LCSQueryClient(LCSBaseUser):
             if response.status_code == 200:
                 try:
                     data = response.json()
-                    self.conversation_id = data.get("conversation_id", self.conversation_id)
+                    new_cid = data.get("conversation_id")
+                    if new_cid and not self.conversation_id:
+                        logger.debug("New conversation: %s", new_cid)
+                    self.conversation_id = new_cid or self.conversation_id
                 except Exception:
                     pass
                 record_bytes(len(response.content or b""), payload_bytes)
                 response.success()
             else:
+                logger.debug("Query failed: status=%d", response.status_code)
                 response.failure(f"Status {response.status_code}")
 
 
@@ -89,6 +98,7 @@ class LCSStreamingClient(LCSBaseUser):
             name="/v1/streaming_query",
         ) as response:
             if response.status_code != 200:
+                logger.debug("Streaming failed: status=%d", response.status_code)
                 response.failure(f"Status {response.status_code}")
                 return
 
@@ -110,6 +120,8 @@ class LCSStreamingClient(LCSBaseUser):
                             pass
 
             total_stream_ms = (time.perf_counter() - start) * 1000
+            logger.debug("Stream complete: ttft=%.1fms total=%.1fms bytes=%d",
+                          ttft or 0, total_stream_ms, response_bytes)
             record_stream_time(total_stream_ms)
             record_bytes(response_bytes, payload_bytes)
 

@@ -4,7 +4,7 @@ import os
 
 from lib.config import ES_INDEX, ES_SERVER, RESULTS_DIR, TEST_UUID
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("lcs.indexer")
 
 
 def index_results(results: dict):
@@ -18,10 +18,11 @@ def _index_to_elasticsearch(results: dict):
     try:
         from elasticsearch import Elasticsearch
 
+        logger.debug("Connecting to Elasticsearch: %s", ES_SERVER)
         es = Elasticsearch(ES_SERVER, verify_certs=False)
         doc_id = f"{results['uuid']}-{results.get('metricName', 'results')}"
         es.index(index=ES_INDEX, body=results, id=doc_id)
-        print(f"[LCS] Indexed results to {ES_SERVER}/{ES_INDEX}")
+        logger.info("Indexed to %s/%s (doc_id=%s)", ES_SERVER, ES_INDEX, doc_id)
     except ImportError:
         logger.warning("elasticsearch package not installed, falling back to local")
         _index_to_local(results)
@@ -37,4 +38,4 @@ def _index_to_local(results: dict):
     out_path = os.path.join(metrics_dir, f"{metric_name}.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
-    print(f"[LCS] Local index: {out_path}")
+    logger.info("Local index: %s", out_path)
