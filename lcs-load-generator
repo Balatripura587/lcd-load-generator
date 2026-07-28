@@ -66,6 +66,10 @@ def _run_endpoint(endpoint, index, total, cfg):
     print(f"[LCS] [{index}/{total}] Running {endpoint} load test...")
     print(f"{'='*60}")
 
+    logger.info("Preparing requests for %s endpoint: host=%s users=%d duration=%s",
+                endpoint, cfg["host"], cfg["users"], cfg["duration"])
+    logger.debug("Preparing headers: endpoint=%s/v1/%s", cfg["host"], endpoint)
+
     env = os.environ.copy()
     env["ENDPOINT_TYPE"] = endpoint
     env["TEST_UUID"] = cfg["uuid"]
@@ -97,11 +101,15 @@ def _run_endpoint(endpoint, index, total, cfg):
     logger.debug("Environment overrides: ENDPOINT_TYPE=%s TEST_UUID=%s ES_SERVER=%s",
                  endpoint, cfg["uuid"], cfg["es_server"] or "disabled")
 
+    endpoint_start = time.time()
     result = subprocess.run(locust_cmd, env=env)
+    endpoint_elapsed = time.time() - endpoint_start
+
     if result.returncode != 0:
         logger.warning("%s test exited with code %d", endpoint, result.returncode)
     else:
-        logger.debug("%s test completed successfully", endpoint)
+        logger.info("%s test completed successfully", endpoint)
+    logger.info("Total time taken for %s: %.1fs", endpoint, endpoint_elapsed)
 
 
 def _build_job_summary(test_uuid, start_time, end_time, metadata):
@@ -146,6 +154,9 @@ def run_action(args):
     cfg = _resolve_config(args)
     os.makedirs(cfg["results_dir"], exist_ok=True)
 
+    logger.info("Orchestrating the workload")
+    logger.info("Run details: uuid=%s", cfg["uuid"])
+
     print(f"\n{'='*60}")
     print("[LCS LOAD GENERATOR]")
     print(f"{'='*60}")
@@ -170,12 +181,15 @@ def run_action(args):
 
     overall_end = time.time()
 
+    logger.info("Indexing job summary")
     print(f"\n{'='*60}")
     print("[LCS] Indexing job summary...")
     print(f"{'='*60}")
     _index_job_summary(cfg["uuid"], overall_start, overall_end, cfg)
 
     elapsed = overall_end - overall_start
+    logger.info("Total time taken for completion: %.1fs", elapsed)
+    logger.info("Exiting lcs-load-generator: uuid=%s", cfg["uuid"])
     print(f"\n{'='*60}")
     print(f"[LCS] All tests complete.")
     print(f"  UUID:    {cfg['uuid']}")

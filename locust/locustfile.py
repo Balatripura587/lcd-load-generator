@@ -6,10 +6,16 @@ Endpoint mode controlled by ENDPOINT_TYPE env var:
 
 """
 
+import logging
+
 from lib.config import ENDPOINT_TYPE
-from lib.metrics import *  
+from lib.metrics import *  # noqa: F401,F403 — registers event listeners
+
+logger = logging.getLogger("lcs.locustfile")
 
 if ENDPOINT_TYPE == "streaming":
     from lib.users import LCSStreamingClient as ActiveUser
+    logger.debug("Loaded streaming user class: LCSStreamingClient")
 else:
     from lib.users import LCSQueryClient as ActiveUser
+    logger.debug("Loaded query user class: LCSQueryClient")

@@ -46,18 +46,32 @@ spec:
     spec:
       serviceAccountName: lcs-locust-sa
       restartPolicy: Never
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app.kubernetes.io/name
-                      operator: In
-                      values:
-                        - lightspeed-core-service
-                topologyKey: kubernetes.io/hostname
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       nodeSelectorTerms:
+      #         - matchExpressions:
+      #             - key: node-role.kubernetes.io/worker
+      #               operator: In
+      #               values:
+      #                 - ""
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       - labelSelector:
+      #           matchExpressions:
+      #             - key: app.kubernetes.io/name
+      #               operator: In
+      #               values:
+      #                 - lightspeed-core-service
+      #             - key: app.kubernetes.io/part-of
+      #               operator: In
+      #               values:
+      #                 - lightspeed-core
+      #             - key: app.kubernetes.io/component
+      #               operator: In
+      #               values:
+      #                 - application-server
+      #         topologyKey: kubernetes.io/hostname
       containers:
         - name: lcs-load-generator
           image: quay.io/rh-ee-bbodapat/lcs-load-generator:latest
