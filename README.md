@@ -98,6 +98,16 @@ podman run --rm \
 
 ### Mode 3: OpenShift Job
 
+Create the namespace and kubeconfig secret:
+
+```bash
+oc new-project lcs-perf-testing
+
+oc create secret generic kubeconfig-secret \
+  --from-file=kubeconfig=$KUBECONFIG \
+  -n lcs-perf-testing
+```
+
 Edit environment variables in `config/lcs-load-generator.yaml` with your corresponding values and apply:
 
 ```bash
@@ -111,6 +121,13 @@ oc logs -f job/lcs-load-generator -n lcs-perf-testing
 ```
 
 The per-endpoint result JSON documents are printed to stdout, so `oc logs` is the primary way to view results.
+
+To re-run, delete the previous Job first:
+
+```bash
+oc delete job lcs-load-generator -n lcs-perf-testing --ignore-not-found
+oc apply -f config/lcs-load-generator.yaml
+```
 
 ## Envs
 
