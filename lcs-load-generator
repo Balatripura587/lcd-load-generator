@@ -3,15 +3,18 @@
 
 Runs all endpoints (query, streaming) sequentially in a single
 invocation, indexes results per endpoint, then indexes a jobSummary once.
+Optionally scrapes Prometheus metrics via kube-burner after the load test.
 
 Usage:
   lcs-load-generator run [options]
+  lcs-load-generator index --start <epoch> --end <epoch> [options]
 """
 
 import argparse
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -22,6 +25,7 @@ logger = logging.getLogger("lcs")
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _candidate = os.path.join(SCRIPT_DIR, "locust")
 LOCUST_DIR = _candidate if os.path.isdir(_candidate) else SCRIPT_DIR
+PROFILES_DIR = os.path.join(LOCUST_DIR, "assets", "profiles")
 
 ENDPOINTS = ["query", "streaming"]
 
@@ -59,6 +63,17 @@ def _resolve_config(args):
     }
     logger.debug("Resolved config: %s", {k: v for k, v in cfg.items() if k != "token"})
     return cfg
+
+
+def _resolve_prometheus_config(args):
+    return {
+        "scrape_metrics": getattr(args, "scrape_metrics", False)
+            or (_env_or("ENABLE_SCRAPE_METRICS", "false").lower() == "true"),
+        "es_index_metrics": getattr(args, "es_index_metrics", "")
+            or _env_or("ES_INDEX_METRICS", "lcs-perf-metrics"),
+        "metric_step": getattr(args, "metric_step", "")
+            or _env_or("METRIC_STEP", "30s"),
+    }
 
 
 def _run_endpoint(endpoint, index, total, cfg):
@@ -126,7 +141,9 @@ def _build_job_summary(test_uuid, start_time, end_time, metadata):
 
 
 def _index_job_summary(test_uuid, start_time, end_time, cfg):
-    from cluster_metadata import get_cluster_metadata
+    sys.path.insert(0, SCRIPT_DIR)
+    from py_commons.ocp_metadata import get_cluster_metadata
+    from py_commons.indexers import IndexerConfig, index_results
 
     logger.debug("Collecting cluster metadata via oc commands")
     metadata = get_cluster_metadata()
@@ -142,16 +159,65 @@ def _index_job_summary(test_uuid, start_time, end_time, cfg):
         json.dump(job_summary, f, indent=2)
     logger.info("Job summary written to %s", summary_file)
 
-    os.environ.setdefault("TEST_UUID", test_uuid)
-    os.environ["ES_SERVER"] = cfg["es_server"]
-    os.environ["ES_INDEX"] = cfg["es_index"]
-    sys.path.insert(0, LOCUST_DIR)
-    from lib.indexer import index_results
-    index_results(job_summary)
+    index_config = IndexerConfig(
+        es_server=cfg["es_server"],
+        es_index=cfg["es_index"],
+        results_dir=cfg["results_dir"],
+        test_uuid=test_uuid,
+    )
+    index_results(job_summary, index_config)
+
+
+def _scrape_prometheus(test_uuid, start_epoch, end_epoch, es_server, es_index_metrics, metric_step):
+    """Scrape Prometheus metrics via kube-burner and index to ES."""
+    kb_cmd = shutil.which("kube-burner-ocp") or shutil.which("kube-burner")
+    if not kb_cmd:
+        logger.warning("kube-burner not found in PATH, skipping Prometheus scrape")
+        return
+
+    start = str(int(start_epoch) - 600)
+    end = str(int(end_epoch) + 600)
+
+    for profile_name, profile_file in [
+        ("aggregate", "metrics-report.yaml"),
+        ("time-series", "metrics-timeseries.yaml"),
+    ]:
+        profile_path = os.path.join(PROFILES_DIR, profile_file)
+        if not os.path.exists(profile_path):
+            logger.warning("Profile not found: %s", profile_path)
+            continue
+
+        logger.info("Scraping %s profile: %s", profile_name, profile_path)
+
+        print(f"\n[LCS] Scraping {profile_name} metrics...")
+
+        result = subprocess.run(
+            [
+                kb_cmd, "index",
+                "--uuid", test_uuid,
+                "--start", start,
+                "--end", end,
+                "--step", str(metric_step),
+                "--metrics-profile", profile_path,
+                "--es-server", es_server,
+                "--es-index", es_index_metrics,
+            ],
+            capture_output=True, text=True,
+        )
+
+        if result.returncode != 0:
+            logger.warning("%s scrape failed (rc=%d): %s",
+                           profile_name, result.returncode,
+                           result.stderr.strip())
+        else:
+            logger.info("%s scrape complete", profile_name)
+            if result.stdout.strip():
+                logger.debug("kube-burner stdout: %s", result.stdout.strip())
 
 
 def run_action(args):
     cfg = _resolve_config(args)
+    prom_cfg = _resolve_prometheus_config(args)
     os.makedirs(cfg["results_dir"], exist_ok=True)
 
     logger.info("Orchestrating the workload")
@@ -172,6 +238,10 @@ def run_action(args):
     print(f"  Endpoints:   {', '.join(ENDPOINTS)}")
     print(f"  ES:          {cfg['es_server'] or 'disabled'}")
     print(f"  Results:     {cfg['results_dir']}")
+    print(f"  Metrics:     {'enabled' if prom_cfg['scrape_metrics'] else 'disabled'}")
+    if prom_cfg["scrape_metrics"]:
+        print(f"  ES Metrics:  {prom_cfg['es_index_metrics']}")
+        print(f"  Step:        {prom_cfg['metric_step']}")
     print(f"{'='*60}\n")
 
     overall_start = time.time()
@@ -187,6 +257,21 @@ def run_action(args):
     print(f"{'='*60}")
     _index_job_summary(cfg["uuid"], overall_start, overall_end, cfg)
 
+    if prom_cfg["scrape_metrics"]:
+        es_server = cfg["es_server"]
+        if not es_server:
+            logger.warning("--scrape-metrics requires --es-server, skipping Prometheus scrape")
+        else:
+            print(f"\n{'='*60}")
+            print("[LCS] Scraping Prometheus metrics...")
+            print(f"{'='*60}")
+            _scrape_prometheus(
+                cfg["uuid"], overall_start, overall_end,
+                es_server, prom_cfg["es_index_metrics"], prom_cfg["metric_step"],
+            )
+    else:
+        logger.debug("Prometheus scraping disabled (use --scrape-metrics to enable)")
+
     elapsed = overall_end - overall_start
     logger.info("Total time taken for completion: %.1fs", elapsed)
     logger.info("Exiting lcs-load-generator: uuid=%s", cfg["uuid"])
@@ -194,6 +279,40 @@ def run_action(args):
     print(f"[LCS] All tests complete.")
     print(f"  UUID:    {cfg['uuid']}")
     print(f"  Elapsed: {elapsed:.1f}s")
+    print(f"{'='*60}")
+
+
+def index_action(args):
+    """Standalone Prometheus metric scraping without running load tests."""
+    prom_cfg = _resolve_prometheus_config(args)
+    test_uuid = args.uuid or _env_or("TEST_UUID", str(uuid.uuid4()))
+    es_server = args.es_server or _env_or("ES_SERVER", "")
+
+    if not es_server:
+        logger.error("--es-server is required for the index subcommand")
+        sys.exit(1)
+
+    logger.info("Standalone Prometheus index: uuid=%s start=%.0f end=%.0f",
+                test_uuid, args.start, args.end)
+
+    print(f"\n{'='*60}")
+    print("[LCS] Standalone Prometheus scrape")
+    print(f"{'='*60}")
+    print(f"  UUID:        {test_uuid}")
+    print(f"  Time range:  {args.start} - {args.end}")
+    print(f"  Step:        {prom_cfg['metric_step']}")
+    print(f"  ES:          {es_server}")
+    print(f"  ES Index:    {prom_cfg['es_index_metrics']}")
+    print(f"{'='*60}\n")
+
+    _scrape_prometheus(
+        test_uuid, args.start, args.end,
+        es_server, prom_cfg["es_index_metrics"], prom_cfg["metric_step"],
+    )
+
+    print(f"\n{'='*60}")
+    print(f"[LCS] Prometheus scrape complete.")
+    print(f"  UUID:    {test_uuid}")
     print(f"{'='*60}")
 
 
@@ -206,6 +325,7 @@ def main():
     parser.add_argument("-W", action="store_true", help="quieter log output")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    # --- run subcommand ---
     run_parser = subparsers.add_parser("run", help="Run load tests on all LCS endpoints")
     run_parser.add_argument("--host", default="", help="LCS endpoint URL (env: LCS_HOST)")
     run_parser.add_argument("--token", default="", help="LCS auth token (env: LCS_TOKEN)")
@@ -221,12 +341,31 @@ def main():
     run_parser.add_argument("--results-dir", default="", help="Results directory (env: RESULTS_DIR)")
     run_parser.add_argument("--questions-file", default="", help="Path to questions YAML (env: QUESTIONS_FILE)")
     run_parser.add_argument("--locustfile", default="", help="Path to locustfile.py")
+    run_parser.add_argument("--scrape-metrics", action="store_true", default=False,
+                            help="Scrape Prometheus metrics after load test (env: ENABLE_SCRAPE_METRICS)")
+    run_parser.add_argument("--es-index-metrics", default="",
+                            help="ES index for Prometheus metrics (env: ES_INDEX_METRICS, default: lcs-perf-metrics)")
+    run_parser.add_argument("--metric-step", default="",
+                            help="Step interval for range queries e.g. 30s (env: METRIC_STEP)")
+
+    # --- index subcommand ---
+    index_parser = subparsers.add_parser("index", help="Scrape Prometheus metrics without running load tests")
+    index_parser.add_argument("--start", type=float, required=True, help="Test start time (Unix epoch)")
+    index_parser.add_argument("--end", type=float, required=True, help="Test end time (Unix epoch)")
+    index_parser.add_argument("--uuid", default="", help="Test UUID (env: TEST_UUID)")
+    index_parser.add_argument("--es-server", default="", help="Elasticsearch URL (env: ES_SERVER)")
+    index_parser.add_argument("--es-index-metrics", default="",
+                              help="ES index for Prometheus metrics (env: ES_INDEX_METRICS)")
+    index_parser.add_argument("--metric-step", default="",
+                              help="Step interval for range queries (env: METRIC_STEP)")
 
     args = parser.parse_args()
     _setup_logging(debug=args.D, quiet=args.W)
 
     if args.command == "run":
         run_action(args)
+    elif args.command == "index":
+        index_action(args)
 
 
 if __name__ == "__main__":

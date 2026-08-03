@@ -14,7 +14,7 @@ push: build
 	$(ENGINE) push $(IMAGE)
 
 lint:
-	python3 -m flake8 locust/ --max-line-length=120 --exclude=__pycache__
+	python3 -m flake8 locust/ py_commons/ --max-line-length=120 --exclude=__pycache__
 
 test:
 	cd locust && python3 -c "from lib.config import *; from lib.questions import QUESTIONS; print(f'{len(QUESTIONS)} questions loaded')"

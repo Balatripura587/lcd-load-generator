@@ -1,0 +1,28 @@
+---
+# LCS aggregate metrics — instant queries evaluated once at end of test.
+# Uses {{.elapsed}} to aggregate over the full test window.
+# Namespace filter covers both lcs-perf-testing and lightspeed-stack deployments.
+
+- query: avg(avg_over_time(irate(container_cpu_usage_seconds_total{name!="", namespace=~"lcs-perf-testing|lightspeed-stack.*", container!="POD"}[2m])[{{.elapsed}}:])) by (container)
+  metricName: avg-cpu
+  instant: true
+
+- query: max(max_over_time(irate(container_cpu_usage_seconds_total{name!="", namespace=~"lcs-perf-testing|lightspeed-stack.*", container!="POD"}[2m])[{{.elapsed}}:])) by (container)
+  metricName: max-cpu
+  instant: true
+
+- query: avg(avg_over_time(container_memory_rss{name!="", namespace=~"lcs-perf-testing|lightspeed-stack.*", container!="POD"}[{{.elapsed}}:])) by (container)
+  metricName: avg-memory-rss
+  instant: true
+
+- query: max(max_over_time(container_memory_rss{name!="", namespace=~"lcs-perf-testing|lightspeed-stack.*", container!="POD"}[{{.elapsed}}:])) by (container)
+  metricName: max-memory-rss
+  instant: true
+
+- query: sum(increase(container_cpu_cfs_throttled_seconds_total{namespace=~"lcs-perf-testing|lightspeed-stack.*", container!="POD"}[{{.elapsed}}s])) by (container)
+  metricName: throttled-cpu
+  instant: true
+
+- query: sum(kube_pod_container_status_restarts_total{namespace=~"lcs-perf-testing|lightspeed-stack.*"})
+  metricName: pod-restarts
+  instant: true

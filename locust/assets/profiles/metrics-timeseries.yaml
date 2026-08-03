@@ -1,0 +1,33 @@
+---
+# LCS time-series metrics — range queries returning datapoints at step intervals.
+# Namespace filter covers both lcs-perf-testing and lightspeed-stack deployments.
+
+- query: >-
+    sum(irate(container_cpu_usage_seconds_total{
+      namespace=~"lcs-perf-testing|lightspeed-stack.*",
+      container!~"POD|", name!=""
+    }[2m]) * 100) by (container, pod, namespace, node)
+  metricName: containerCPU
+  instant: false
+
+- query: >-
+    sum(container_memory_rss{
+      namespace=~"lcs-perf-testing|lightspeed-stack.*",
+      container!~"POD|"
+    }) by (container, pod, namespace, node)
+  metricName: containerMemoryRSS
+  instant: false
+
+- query: >-
+    sum(increase(kube_pod_container_status_restarts_total{
+      namespace=~"lcs-perf-testing|lightspeed-stack.*"
+    }[30s])) by (pod, container)
+  metricName: podRestarts
+  instant: false
+
+- query: >-
+    sum(rate(container_cpu_cfs_throttled_seconds_total{
+      namespace=~"lcs-perf-testing|lightspeed-stack.*"
+    }[2m])) by (container, pod)
+  metricName: containerThrottledCPU
+  instant: false

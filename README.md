@@ -2,7 +2,7 @@
 
 Load generator tool for [LightSpeed Core Service (LCS)](https://github.com/lightspeed-core/lightspeed-stack) using [Locust](https://locust.io/).
 
-Simulates multiple user sessions to perform duration-based load tests with configurable parallelism. Runs LCS endpoints (query, streaming) sequentially in a single invocation, collecting latency, throughput, and HTTP status code metrics per endpoint.
+Simulates multiple user sessions to perform duration-based load tests with configurable parallelism. Runs LCS endpoints (query, streaming) sequentially in a single invocation, collecting latency, throughput, and HTTP status code metrics per endpoint. Optionally scrapes Prometheus metrics from the OCP cluster to capture resource usage during the test window.
 
 ## Prerequisites
 
@@ -55,6 +55,18 @@ With Elasticsearch indexing:
   --es-server http://es:9200
 ```
 
+With Prometheus metrics scraping (requires `kube-burner-ocp` in PATH and `oc` login):
+
+```bash
+./lcs-load-generator run \
+  --host http://localhost:8080 \
+  --token "your-auth-token" \
+  --users 10 \
+  --duration 5m \
+  --scrape-metrics \
+  --es-server http://es:9200
+```
+
 With multiple worker processes (for high concurrency / GIL mitigation):
 
 ```bash
@@ -83,7 +95,7 @@ podman run --rm \
   quay.io/rh-ee-bbodapat/lcs-load-generator:latest
 ```
 
-With Elasticsearch:
+With Elasticsearch and Prometheus metrics:
 
 ```bash
 podman run --rm \
@@ -92,7 +104,7 @@ podman run --rm \
   -e LOCUST_USERS=25 \
   -e LOCUST_RUN_TIME=5m \
   -e ES_SERVER=http://es:9200 \
-  -e ES_INDEX=lcs-perf-results \
+  -e ENABLE_SCRAPE_METRICS=true \
   quay.io/rh-ee-bbodapat/lcs-load-generator:latest
 ```
 
@@ -112,6 +124,17 @@ oc logs -f job/lcs-load-generator -n lcs-perf-testing
 
 The per-endpoint result JSON documents are printed to stdout, so `oc logs` is the primary way to view results.
 
+### Standalone Prometheus scrape
+
+Re-index Prometheus metrics for a given time window without re-running load tests:
+
+```bash
+./lcs-load-generator index \
+  --start 1700000000 \
+  --end 1700000300 \
+  --es-server http://es:9200
+```
+
 ## Envs
 
 * `LCS_HOST` - LCS endpoint URL to perform load testing.
@@ -124,6 +147,9 @@ The per-endpoint result JSON documents are printed to stdout, so `oc logs` is th
 * `REQUEST_TIMEOUT` - Per-request timeout in seconds.
 * `TEST_UUID`(Optional) - Unique test run identifier. Auto-generated if not specified.
 * `ES_SERVER`(Optional) - Elasticsearch host URL. If not specified, results are indexed locally.
-* `ES_INDEX`(Optional) - Elasticsearch index name. If not specified, defaults to `lcs-perf-results`.
+* `ES_INDEX`(Optional) - Elasticsearch index name. Defaults to `lcs-perf-results`.
 * `RESULTS_DIR`(Optional) - Directory for result files. Defaults to `/tmp`.
 * `QUESTIONS_FILE`(Optional) - Path to questions YAML file. Defaults to bundled questions.
+* `ENABLE_SCRAPE_METRICS`(Optional) - Enable Prometheus scraping after load test (`true`/`false`). Defaults to `false`.
+* `ES_INDEX_METRICS`(Optional) - Elasticsearch index for Prometheus metrics. Defaults to `lcs-perf-metrics`.
+* `METRIC_STEP`(Optional) - Step interval for Prometheus range queries. Defaults to `30s`.
