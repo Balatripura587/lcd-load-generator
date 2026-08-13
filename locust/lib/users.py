@@ -1,3 +1,5 @@
+"""Locust user classes simulating LCS query and streaming endpoint traffic."""
+
 import json
 import logging
 import random
@@ -13,6 +15,8 @@ logger = logging.getLogger("lcs.users")
 
 
 class LCSBaseUser(HttpUser):
+    """Base user with auth headers and zero wait time between requests."""
+
     abstract = True
     wait_time = constant(0)
 
@@ -26,6 +30,7 @@ class LCSBaseUser(HttpUser):
 
 
 class LCSQueryClient(LCSBaseUser):
+    """Simulated user sending POST /v1/query requests."""
 
     @task
     def query(self):
@@ -66,6 +71,7 @@ class LCSQueryClient(LCSBaseUser):
 
 
 class LCSStreamingClient(LCSBaseUser):
+    """Simulated user sending POST /v1/streaming_query SSE requests with TTFT tracking."""
 
     def on_start(self):
         super().on_start()

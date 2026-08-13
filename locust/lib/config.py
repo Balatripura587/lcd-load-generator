@@ -1,3 +1,5 @@
+"""Configuration constants loaded from environment variables at import time."""
+
 import os
 import uuid
 

@@ -1,41 +1,35 @@
-import json
+"""Thin wrapper around py-commons indexer for Locust subprocess use."""
+
 import logging
 import os
 
+from commons.indexers import IndexerConfig, new_indexer
 from lib.config import ES_INDEX, ES_SERVER, RESULTS_DIR, TEST_UUID
 
 logger = logging.getLogger("lcs.indexer")
 
+_config = IndexerConfig(
+    type="opensearch" if ES_SERVER else "local",
+    servers=[ES_SERVER] if ES_SERVER else [],
+    index=ES_INDEX,
+    insecure_skip_verify=True,
+    metrics_directory=os.path.join(RESULTS_DIR, f"collected-metrics-{TEST_UUID}"),
+)
+
+_indexer = None
+
+
+def _get_indexer():
+    """Return a lazily-initialized singleton indexer instance."""
+    global _indexer
+    if _indexer is None:
+        _indexer = new_indexer(_config)
+    return _indexer
+
 
 def index_results(results: dict):
-    if ES_SERVER:
-        _index_to_elasticsearch(results)
-    else:
-        _index_to_local(results)
-
-
-def _index_to_elasticsearch(results: dict):
-    try:
-        from elasticsearch import Elasticsearch
-
-        logger.debug("Connecting to Elasticsearch: %s", ES_SERVER)
-        es = Elasticsearch(ES_SERVER, verify_certs=False)
-        doc_id = f"{results['uuid']}-{results.get('metricName', 'results')}"
-        es.index(index=ES_INDEX, body=results, id=doc_id)
-        logger.info("Indexed to %s/%s (doc_id=%s)", ES_SERVER, ES_INDEX, doc_id)
-    except ImportError:
-        logger.warning("elasticsearch package not installed, falling back to local")
-        _index_to_local(results)
-    except Exception as e:
-        logger.warning("Failed to index to Elasticsearch: %s", e)
-        _index_to_local(results)
-
-
-def _index_to_local(results: dict):
-    metrics_dir = os.path.join(RESULTS_DIR, f"collected-metrics-{TEST_UUID}")
-    os.makedirs(metrics_dir, exist_ok=True)
+    """Index a single result document to ES or local file."""
     metric_name = results.get("metricName", "results")
-    out_path = os.path.join(metrics_dir, f"{metric_name}.json")
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2)
-    logger.info("Local index: %s", out_path)
+    indexer = _get_indexer()
+    msg = indexer.index([results], metric_name=metric_name)
+    logger.info(msg)

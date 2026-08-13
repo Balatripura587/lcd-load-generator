@@ -1,3 +1,5 @@
+"""Load test questions from YAML file or fall back to built-in defaults."""
+
 import logging
 import os
 
@@ -22,6 +24,7 @@ FALLBACK_QUESTIONS = [
 
 
 def load_questions() -> list[str]:
+    """Load questions from YAML file, falling back to FALLBACK_QUESTIONS."""
     if os.path.exists(QUESTIONS_FILE):
         with open(QUESTIONS_FILE) as f:
             data = yaml.safe_load(f)

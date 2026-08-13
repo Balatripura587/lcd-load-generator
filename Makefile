@@ -1,6 +1,6 @@
 ENGINE ?= podman
 REGISTRY ?= quay.io
-ORG ?= openshift-lightspeed
+ORG ?= bbodapat
 IMAGE_NAME ?= lcs-load-generator
 IMAGE_TAG ?= latest
 IMAGE = $(REGISTRY)/$(ORG)/$(IMAGE_NAME):$(IMAGE_TAG)

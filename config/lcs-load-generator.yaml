@@ -1,9 +1,33 @@
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lcs-load-generator-serviceaccount
+  namespace: <your-namespace>
+rules:
+  - apiGroups: ["extensions", "apps", "batch", "security.openshift.io", "policy"]
+    resources: ["deployments", "jobs", "pods", "services", "jobs/status",
+                "podsecuritypolicies", "securitycontextconstraints"]
+    verbs: ["use", "get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lcs-load-generator-role
+  namespace: <your-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lcs-load-generator-serviceaccount
+subjects:
+  - kind: ServiceAccount
+    name: default
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: lcs-load-generator
-  namespace: lcs-perf-testing
+  namespace: <your-namespace>
   labels:
     app: lcs-load-generator
 spec:
@@ -14,48 +38,49 @@ spec:
         app: lcs-load-generator
     spec:
       restartPolicy: Never
-      # affinity:
-      #   podAntiAffinity:
-      #     requiredDuringSchedulingIgnoredDuringExecution:
-      #       - labelSelector:
-      #           matchExpressions:
-      #             - key: app.kubernetes.io/component
-      #               operator: In
-      #               values:
-      #                 - application-server
-      #         topologyKey: kubernetes.io/hostname
       containers:
         - name: lcs-load-generator
-          image: quay.io/rh-ee-bbodapat/lcs-load-generator:latest
+          image: <lcs-load-generator-image>
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: KUBECONFIG
               value: "/etc/kubeconfig/kubeconfig"
+            - name: LCS_NAMESPACE
+              value: "<lcs-namespace>"
             - name: LCS_HOST
-              value: "http://lcs.lcs-perf-testing.svc.cluster.local:8080"
+              value: "<lcs-host-url>"
             - name: LCS_TOKEN
-              value: ""
+              value: "<lcs-auth-token>"
             - name: LCS_PROVIDER
-              value: "openai"
+              value: "<llm-provider>"
             - name: LCS_MODEL
-              value: "granite-3.1-8b-instruct"
+              value: "<llm-model>"
             - name: LOCUST_USERS
-              value: "5"
+              value: "<concurrent-users>"
             - name: LOCUST_RUN_TIME
-              value: "1m"
+              value: "<test-duration>"
             - name: LOCUST_PROCESSES
-              value: "1"
+              value: "<worker-processes>"
             - name: TEST_UUID
               value: ""
             - name: REQUEST_TIMEOUT
-              value: "120"
+              value: "<request-timeout>"
             - name: RESULTS_DIR
               value: "/results"
             - name: QUESTIONS_FILE
               value: "/opt/lcs-load-generator/locust/assets/questions.yaml"
             - name: ES_SERVER
-              value: ""
+              value: "<es-url>"
             - name: ES_INDEX
-              value: "lcs-perf-results"
+              value: "<es-index>"
+            - name: METRIC_STEP
+              value: "<step-size>"
           resources:
             requests:
               cpu: "250m"

@@ -1,3 +1,5 @@
+"""Result document builder for per-endpoint load test metrics."""
+
 import platform
 import time
 
@@ -5,6 +7,7 @@ from lib.config import ENDPOINT_TYPE, LCS_MODEL, LCS_PROVIDER, REQUEST_TIMEOUT, 
 
 
 def _percentiles(samples, prefix):
+    """Compute p50, p95, p99, and avg from a list of numeric samples."""
     if not samples:
         return {}
     sorted_s = sorted(samples)
@@ -18,6 +21,7 @@ def _percentiles(samples, prefix):
 
 
 def _status_codes(stats, environment):
+    """Return HTTP status code distribution from custom tracking or Locust stats."""
     from lib.metrics import get_status_codes
     codes = get_status_codes()
     if not codes:
@@ -43,6 +47,7 @@ def build_result_document(
     ttft_samples: list[float],
     stream_time_samples: list[float],
 ) -> dict:
+    """Assemble a per-endpoint result document with latency, throughput, and TTFT stats."""
     elapsed = end_time - start_time
     user_count = environment.runner.target_user_count if environment.runner else 0
 
