@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: lcs-load-generator-serviceaccount
-  namespace: <your-namespace>
+  namespace: ${LCS_NAMESPACE}
 rules:
   - apiGroups: ["extensions", "apps", "batch", "security.openshift.io", "policy"]
     resources: ["deployments", "jobs", "pods", "services", "jobs/status",
@@ -14,7 +14,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: lcs-load-generator-role
-  namespace: <your-namespace>
+  namespace: ${LCS_NAMESPACE}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -27,7 +27,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: lcs-load-generator
-  namespace: <your-namespace>
+  namespace: ${LCS_NAMESPACE}
   labels:
     app: lcs-load-generator
 spec:
@@ -40,7 +40,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: lcs-load-generator
-          image: <lcs-load-generator-image>
+          image: ${LCS_LOADGEN_IMAGE}
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -52,35 +52,35 @@ spec:
             - name: KUBECONFIG
               value: "/etc/kubeconfig/kubeconfig"
             - name: LCS_NAMESPACE
-              value: "<lcs-namespace>"
+              value: "${LCS_NAMESPACE}"
             - name: LCS_HOST
-              value: "<lcs-host-url>"
+              value: "${LCS_HOST}"
             - name: LCS_TOKEN
-              value: "<lcs-auth-token>"
+              value: "${LCS_TOKEN}"
             - name: LCS_PROVIDER
-              value: "<llm-provider>"
+              value: "${LCS_PROVIDER}"
             - name: LCS_MODEL
-              value: "<llm-model>"
+              value: "${LCS_MODEL}"
             - name: LOCUST_USERS
-              value: "<concurrent-users>"
+              value: "${LOCUST_USERS}"
             - name: LOCUST_RUN_TIME
-              value: "<test-duration>"
+              value: "${LOCUST_RUN_TIME}"
             - name: LOCUST_PROCESSES
-              value: "<worker-processes>"
+              value: "${LOCUST_PROCESSES}"
             - name: TEST_UUID
               value: ""
             - name: REQUEST_TIMEOUT
-              value: "<request-timeout>"
+              value: "${REQUEST_TIMEOUT}"
             - name: RESULTS_DIR
               value: "/results"
             - name: QUESTIONS_FILE
               value: "/opt/lcs-load-generator/locust/assets/questions.yaml"
             - name: ES_SERVER
-              value: "<es-url>"
+              value: "${ES_SERVER}"
             - name: ES_INDEX
-              value: "<es-index>"
+              value: "${ES_INDEX}"
             - name: METRIC_STEP
-              value: "<step-size>"
+              value: "${METRIC_STEP}"
           resources:
             requests:
               cpu: "250m"

@@ -180,8 +180,8 @@ def _scrape_metrics(test_uuid, start, end, cfg):
         logger.warning("kube-burner not found, skipping Prometheus metrics scrape")
         return
 
-    if not os.environ.get("LCS_NAMESPACE"):
-        os.environ["LCS_NAMESPACE"] = _env_or("LCS_NAMESPACE", "openshift-lcs")
+    # kube-burner renders OS env vars as Go template variables ({{.LCS_NAMESPACE}})
+    os.environ.setdefault("LCS_NAMESPACE", "openshift-lcs")
 
     from commons.ocp_metadata import get_prometheus
     prometheus_url, prometheus_token = get_prometheus()

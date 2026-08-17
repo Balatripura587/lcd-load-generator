@@ -15,7 +15,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: lcs-monitor
-  namespace: <your-namespace>
+  namespace: ${LCS_NAMESPACE}
 spec:
   selector:
     matchLabels:

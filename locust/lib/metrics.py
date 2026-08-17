@@ -65,7 +65,9 @@ def get_bytes_stats() -> tuple[float, float]:
 
 @events.request.add_listener
 def _on_request(request_type, name, response_time, response_length, exception, response=None, **kwargs):
-    """Track HTTP status code for each request."""
+    """Track HTTP status code for each request, skipping synthetic events."""
+    if kwargs.get("context", {}).get("synthetic"):
+        return
     if exception:
         code = "error"
     elif response is not None and hasattr(response, "status_code"):

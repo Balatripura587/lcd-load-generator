@@ -8,11 +8,11 @@ Simulates multiple user sessions to perform duration-based load tests with confi
 
 ### Running on OpenShift cluster
 
-LCS deployed on an OpenShift cluster. Refer to the [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack) setup instructions.
+LCS deployed on an OpenShift cluster with a configured LLM provider (e.g. OpenAI, vLLM, WatsonX via Llama Stack). No separate inference layer is needed — LCS handles inference routing internally. Refer to the [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack) setup instructions.
 
 ### Running on local machine
 
-A running instance of LCS (to test against). Refer to the [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack) setup instructions for local deployment.
+A running instance of LCS with a configured LLM backend. Refer to the [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack) setup instructions for local deployment.
 
 ## Setting Up Prometheus Monitoring for LCS
 
@@ -26,10 +26,10 @@ If LCS is deployed in an `openshift-*` namespace (e.g. `openshift-lcs`), platfor
 
 ```bash
 # 1. Label the namespace for platform Prometheus
-oc label namespace <namespace> openshift.io/cluster-monitoring=true
+oc label namespace $LCS_NAMESPACE openshift.io/cluster-monitoring=true
 
-# 2. Apply RBAC + ServiceMonitor (edit namespace in file if not openshift-lcs)
-oc apply -f config/monitoring/platform-prometheus.yaml
+# 2. Apply RBAC + ServiceMonitor
+envsubst < config/monitoring/platform-prometheus.yaml | oc apply -f -
 
 # 3. Verify after ~60s (first scrape cycle)
 TOKEN=$(oc create token prometheus-k8s -n openshift-monitoring --duration=600s)
@@ -50,8 +50,8 @@ No extra env vars needed on the load generator — `prometheus-k8s` is the defau
 If LCS is deployed in a non-`openshift-*` namespace (e.g. `lcs-perf-testing`), enable user workload monitoring and query via Thanos Querier.
 
 ```bash
-# 1. Enable user workload monitoring + create ServiceMonitor (edit namespace in file)
-oc apply -f config/monitoring/user-workload-thanos.yaml
+# 1. Enable user workload monitoring + create ServiceMonitor
+envsubst < config/monitoring/user-workload-thanos.yaml | oc apply -f -
 
 # 2. Wait for user-workload Prometheus to start
 oc rollout status statefulset/prometheus-user-workload \
@@ -72,11 +72,11 @@ Set `PROMETHEUS_BACKEND=thanos` on the load generator Job/container.
 
 ## Installation
 
-```
-pip install locust pyyaml kubernetes opensearch-py
+```bash
+pip install -r requirements.txt
 
-# Install py-commons
-pip install "py-commons @ git+https://github.com/cloud-bulldozer/py-commons.git"
+# Install py-commons with indexers and ocp_metadata extras
+pip install "rh-py-commons[ocp_metadata,indexers] @ git+https://github.com/cloud-bulldozer/py-commons.git"
 ```
 
 Ensure `locust` is available in your `$PATH` after installation.
@@ -193,10 +193,24 @@ oc create secret generic kubeconfig-secret \
   -n lcs-perf-testing
 ```
 
-Edit environment variables in `config/lcs-load-generator.yaml` with your corresponding values and apply:
+Set environment variables and deploy using `envsubst`:
 
 ```bash
-oc apply -f config/lcs-load-generator.yaml
+export LCS_NAMESPACE=lcs-perf-testing
+export LCS_LOADGEN_IMAGE=quay.io/bbodapat/lcs-load-generator:latest
+export LCS_HOST=https://lcs.apps.cluster.example.com
+export LCS_TOKEN=your-auth-token
+export LCS_PROVIDER=openai
+export LCS_MODEL=granite-3.1-8b-instruct
+export LOCUST_USERS=10
+export LOCUST_RUN_TIME=1m
+export LOCUST_PROCESSES=1
+export REQUEST_TIMEOUT=120
+export ES_SERVER=https://es:9200
+export ES_INDEX=lcs-perf-results
+export METRIC_STEP=30
+
+envsubst < config/lcs-load-generator.yaml | oc apply -f -
 ```
 
 Once applied, it creates a Job in the specified namespace and starts running the tests. Tail the logs to see benchmark results:
@@ -211,7 +225,7 @@ To re-run, delete the previous Job first:
 
 ```bash
 oc delete job lcs-load-generator -n lcs-perf-testing --ignore-not-found
-oc apply -f config/lcs-load-generator.yaml
+envsubst < config/lcs-load-generator.yaml | oc apply -f -
 ```
 
 ## Envs

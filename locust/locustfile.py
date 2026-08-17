@@ -9,7 +9,7 @@ Endpoint mode controlled by ENDPOINT_TYPE env var:
 import logging
 
 from lib.config import ENDPOINT_TYPE
-from lib.metrics import *  # noqa: F401,F403 — registers event listeners
+from lib.metrics import on_test_start, on_test_stop  # noqa: F401 — registers event listeners
 
 logger = logging.getLogger("lcs.locustfile")
 

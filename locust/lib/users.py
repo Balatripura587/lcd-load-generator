@@ -138,7 +138,7 @@ class LCSStreamingClient(LCSBaseUser):
                 response_time=total_stream_ms,
                 response_length=0,
                 exception=None,
-                context={},
+                context={"synthetic": True},
             )
             if ttft is not None:
                 events.request.fire(
@@ -147,5 +147,5 @@ class LCSStreamingClient(LCSBaseUser):
                     response_time=ttft,
                     response_length=0,
                     exception=None,
-                    context={},
+                    context={"synthetic": True},
                 )
