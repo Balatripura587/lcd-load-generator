@@ -1,0 +1,26 @@
+## Use when LCS is deployed in a user namespace (e.g. lcs-perf-testing).
+## User-workload Prometheus scrapes, Thanos Querier federates.
+## Requires: PROMETHEUS_BACKEND=thanos in the load generator env.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lcs-monitor
+  namespace: ${LCS_NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: lcs
+  endpoints:
+    - targetPort: 8080
+      path: /metrics
+      interval: 30s

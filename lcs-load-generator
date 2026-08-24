@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""LCS Load Generator — unified CLI for load testing LightSpeed Core Service.
+
+Runs all endpoints (query, streaming) sequentially in a single
+invocation, indexes results per endpoint, then indexes a jobSummary once.
+
+Usage:
+  lcs-load-generator run [options]
+  lcs-load-generator index --start <epoch> --end <epoch> [options]
+"""
+
+import argparse
+import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+logger = logging.getLogger("lcs")
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_candidate = os.path.join(SCRIPT_DIR, "locust")
+LOCUST_DIR = _candidate if os.path.isdir(_candidate) else SCRIPT_DIR
+PROFILES_DIR = os.path.join(LOCUST_DIR, "assets", "profiles")
+
+ENDPOINTS = ["query", "streaming"]
+
+DEFAULT_PROFILES = "metrics-report.yaml,metrics-timeseries.yaml"
+
+
+def _env_or(name, default):
+    """Return environment variable value, falling back to default."""
+    return os.environ.get(name) or default
+
+
+def _setup_logging(debug=False, quiet=False):
+    """Configure root logger level: -D for debug, -W for warning, default info."""
+    level = logging.WARNING if quiet else logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    logger.debug("Log level set to %s", logging.getLevelName(level))
+
+
+def _resolve_config(args):
+    """Merge CLI flags and environment variables into a single config dict."""
+    cfg = {
+        "uuid": args.uuid or _env_or("TEST_UUID", str(uuid.uuid4())),
+        "host": args.host or _env_or("LCS_HOST", "http://localhost:8080"),
+        "token": args.token or _env_or("LCS_TOKEN", ""),
+        "provider": args.provider or _env_or("LCS_PROVIDER", "openai"),
+        "model": args.model or _env_or("LCS_MODEL", "granite-3.1-8b-instruct"),
+        "users": args.users or int(_env_or("LOCUST_USERS", "10")),
+        "duration": args.duration or _env_or("LOCUST_RUN_TIME", "1m"),
+        "processes": args.processes or int(_env_or("LOCUST_PROCESSES", "1")),
+        "request_timeout": args.request_timeout or int(_env_or("REQUEST_TIMEOUT", "120")),
+        "eshost": args.eshost or _env_or("ES_SERVER", ""),
+        "esindex": args.esindex or _env_or("ES_INDEX", "lcs-perf-results"),
+        "results_dir": args.results_dir or _env_or("RESULTS_DIR", "/tmp"),
+        "questions_file": args.questions_file or _env_or("QUESTIONS_FILE", ""),
+        "locustfile": args.locustfile or os.path.join(LOCUST_DIR, "locustfile.py"),
+        "metricstep": args.metricstep or _env_or("METRIC_STEP", "30"),
+        "profiles": args.profiles or _env_or("PROFILES", DEFAULT_PROFILES),
+    }
+    logger.debug("Resolved config: %s", {k: v for k, v in cfg.items() if k != "token"})
+    return cfg
+
+
+def _run_endpoint(endpoint, index, total, cfg):
+    """Spawn a Locust subprocess to load-test a single LCS endpoint."""
+    print(f"\n{'='*60}")
+    print(f"[LCS] [{index}/{total}] Running {endpoint} load test...")
+    print(f"{'='*60}")
+
+    logger.info("Preparing requests for %s endpoint: host=%s users=%d duration=%s",
+                endpoint, cfg["host"], cfg["users"], cfg["duration"])
+    logger.debug("Preparing headers: endpoint=%s/v1/%s", cfg["host"], endpoint)
+
+    env = os.environ.copy()
+    env["ENDPOINT_TYPE"] = endpoint
+    env["TEST_UUID"] = cfg["uuid"]
+    env["LCS_TOKEN"] = cfg["token"]
+    env["LCS_PROVIDER"] = cfg["provider"]
+    env["LCS_MODEL"] = cfg["model"]
+    env["REQUEST_TIMEOUT"] = str(cfg["request_timeout"])
+    env["ES_SERVER"] = cfg["eshost"]
+    env["ES_INDEX"] = cfg["esindex"]
+    env["RESULTS_DIR"] = cfg["results_dir"]
+    if cfg["questions_file"]:
+        env["QUESTIONS_FILE"] = cfg["questions_file"]
+
+    locust_cmd = [
+        sys.executable, "-m", "locust", "-f", cfg["locustfile"],
+        "--host", cfg["host"],
+        "--users", str(cfg["users"]),
+        "--spawn-rate", str(cfg["users"]),
+        "--run-time", cfg["duration"],
+        "--headless",
+        "--only-summary",
+        "--csv", os.path.join(cfg["results_dir"], f"results-{endpoint}"),
+        "--html", os.path.join(cfg["results_dir"], f"results-{endpoint}.html"),
+    ]
+    if cfg["processes"] > 1:
+        locust_cmd.extend(["--processes", str(cfg["processes"])])
+
+    logger.debug("Locust command: %s", " ".join(locust_cmd))
+    logger.debug("Environment overrides: ENDPOINT_TYPE=%s TEST_UUID=%s ES_SERVER=%s",
+                 endpoint, cfg["uuid"], cfg["eshost"] or "disabled")
+
+    endpoint_start = time.time()
+    result = subprocess.run(locust_cmd, env=env)
+    endpoint_elapsed = time.time() - endpoint_start
+
+    if result.returncode != 0:
+        logger.warning("%s test exited with code %d", endpoint, result.returncode)
+    else:
+        logger.info("%s test completed successfully", endpoint)
+    logger.info("Total time taken for %s: %.1fs", endpoint, endpoint_elapsed)
+
+
+def _build_job_summary(test_uuid, start_time, end_time, metadata):
+    """Construct a jobSummary document with cluster metadata and timestamps."""
+    return {
+        "metricName": "jobSummary",
+        "uuid": test_uuid,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(start_time)),
+        "endTimestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(end_time)),
+        "elapsedTime": round(end_time - start_time, 2),
+        "jobConfig": {"name": "lcs-locust"},
+        "metadata": metadata,
+        "passed": True,
+    }
+
+
+def _index_job_summary(test_uuid, start_time, end_time, cfg):
+    """Collect cluster metadata and index a jobSummary document to ES or local file."""
+    from commons.ocp_metadata import get_cluster_metadata
+
+    logger.debug("Collecting cluster metadata")
+    metadata = get_cluster_metadata()
+    if not metadata.get("clusterVersion"):
+        logger.warning("No cluster metadata available, skipping jobSummary")
+        return
+
+    logger.debug("Cluster metadata: %s", metadata)
+    job_summary = _build_job_summary(test_uuid, start_time, end_time, metadata)
+
+    summary_file = os.path.join(cfg["results_dir"], f"jobSummary-{test_uuid}.json")
+    with open(summary_file, "w") as f:
+        json.dump(job_summary, f, indent=2)
+    logger.info("Job summary written to %s", summary_file)
+
+    from commons.indexers import IndexerConfig, new_indexer
+
+    if cfg["eshost"]:
+        icfg = IndexerConfig(
+            type="opensearch",
+            servers=[cfg["eshost"]],
+            index=cfg["esindex"],
+            insecure_skip_verify=True,
+        )
+    else:
+        icfg = IndexerConfig(
+            type="local",
+            metrics_directory=os.path.join(cfg["results_dir"], f"collected-metrics-{test_uuid}"),
+        )
+    indexer = new_indexer(icfg)
+    indexer.index([job_summary], metric_name="jobSummary")
+
+
+def _scrape_metrics(test_uuid, start, end, cfg):
+    """Scrape Prometheus metrics using kube-burner and index them."""
+    kb_cmd = shutil.which("kube-burner")
+    if not kb_cmd:
+        logger.warning("kube-burner not found, skipping Prometheus metrics scrape")
+        return
+
+    # kube-burner renders OS env vars as Go template variables ({{.LCS_NAMESPACE}})
+    os.environ.setdefault("LCS_NAMESPACE", "openshift-lcs")
+
+    from commons.ocp_metadata import get_prometheus
+    prometheus_url, prometheus_token = get_prometheus()
+    if not prometheus_url or not prometheus_token:
+        logger.warning("Prometheus not discovered, skipping metrics scrape")
+        return
+
+    start_padded = int(start) - 600
+    end_padded = int(end) + 600
+
+    profile_list = [p.strip() for p in cfg["profiles"].split(",") if p.strip()]
+
+    for profile_file in profile_list:
+        profile_path = os.path.join(PROFILES_DIR, profile_file)
+        if not os.path.exists(profile_path):
+            logger.warning("Metrics profile not found: %s", profile_path)
+            continue
+
+        profile_name = os.path.splitext(profile_file)[0]
+        logger.info("Scraping %s metrics: %s", profile_name, profile_file)
+
+        cmd = [
+            kb_cmd, "index",
+            "--uuid", test_uuid,
+            "--prometheus-url", prometheus_url,
+            "--token", prometheus_token,
+            "--start", str(start_padded),
+            "--end", str(end_padded),
+            "--step", cfg["metricstep"] + "s" if cfg["metricstep"].isdigit() else cfg["metricstep"],
+            "--metrics-profile", profile_path,
+            "--job-name", "lcs-locust",
+        ]
+
+        if cfg["eshost"]:
+            cmd.extend([
+                "--es-server", cfg["eshost"],
+                "--es-index", cfg["esindex"],
+            ])
+        else:
+            metrics_dir = os.path.join(cfg["results_dir"], f"collected-metrics-{test_uuid}")
+            cmd.extend(["--local-indexing", "--metrics-directory", metrics_dir])
+
+        logger.debug("kube-burner command: %s", " ".join(cmd))
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cfg["results_dir"])
+        if result.returncode != 0:
+            logger.warning(
+                "%s scrape failed (rc=%d): %s",
+                profile_name, result.returncode,
+                result.stderr.strip() or result.stdout.strip(),
+            )
+        else:
+            logger.info("%s scrape complete", profile_name)
+            if result.stdout.strip():
+                for line in result.stdout.strip().split("\n"):
+                    logger.debug("  %s", line)
+
+
+def run_action(args):
+    """Run load tests on all LCS endpoints, scrape metrics, and index results."""
+    cfg = _resolve_config(args)
+    os.makedirs(cfg["results_dir"], exist_ok=True)
+
+    logger.info("Orchestrating the workload")
+    logger.info("Run details: uuid=%s", cfg["uuid"])
+
+    print(f"\n{'='*60}")
+    print("[LCS LOAD GENERATOR]")
+    print(f"{'='*60}")
+    print(f"  UUID:        {cfg['uuid']}")
+    print(f"  Host:        {cfg['host']}")
+    print(f"  Provider:    {cfg['provider']}")
+    print(f"  Model:       {cfg['model']}")
+    print(f"  Token:       {'***' if cfg['token'] else 'none'}")
+    print(f"  Users:       {cfg['users']}")
+    print(f"  Duration:    {cfg['duration']}")
+    print(f"  Processes:   {cfg['processes']}")
+    print(f"  Timeout:     {cfg['request_timeout']}s")
+    print(f"  Endpoints:   {', '.join(ENDPOINTS)}")
+    print(f"  ES:          {cfg['eshost'] or 'disabled'}")
+    print(f"  Index:       {cfg['esindex']}")
+    print(f"  Metric step: {cfg['metricstep']}s")
+    print(f"  Profiles:    {cfg['profiles']}")
+    print(f"  Results:     {cfg['results_dir']}")
+    print(f"{'='*60}\n")
+
+    overall_start = time.time()
+
+    for i, endpoint in enumerate(ENDPOINTS, 1):
+        _run_endpoint(endpoint, i, len(ENDPOINTS), cfg)
+
+    overall_end = time.time()
+
+    print(f"\n{'='*60}")
+    print("[LCS] Scraping Prometheus metrics...")
+    print(f"{'='*60}")
+    _scrape_metrics(cfg["uuid"], overall_start, overall_end, cfg)
+
+    logger.info("Indexing job summary")
+    print(f"\n{'='*60}")
+    print("[LCS] Indexing job summary...")
+    print(f"{'='*60}")
+    _index_job_summary(cfg["uuid"], overall_start, overall_end, cfg)
+
+    elapsed = overall_end - overall_start
+    logger.info("Total time taken for completion: %.1fs", elapsed)
+    logger.info("Exiting lcs-load-generator: uuid=%s", cfg["uuid"])
+    print(f"\n{'='*60}")
+    print(f"[LCS] All tests complete.")
+    print(f"  UUID:    {cfg['uuid']}")
+    print(f"  Elapsed: {elapsed:.1f}s")
+    print(f"{'='*60}")
+
+
+def index_action(args):
+    """Standalone Prometheus metrics scraping and indexing."""
+    cfg = {
+        "uuid": args.uuid or _env_or("TEST_UUID", str(uuid.uuid4())),
+        "eshost": args.eshost or _env_or("ES_SERVER", ""),
+        "esindex": args.esindex or _env_or("ES_INDEX", "lcs-perf-results"),
+        "metricstep": args.metricstep or _env_or("METRIC_STEP", "30"),
+        "profiles": args.profiles or _env_or("PROFILES", DEFAULT_PROFILES),
+        "results_dir": args.results_dir or _env_or("RESULTS_DIR", "/tmp"),
+    }
+
+    print(f"\n{'='*60}")
+    print("[LCS] Prometheus metrics indexing")
+    print(f"{'='*60}")
+    print(f"  UUID:       {cfg['uuid']}")
+    print(f"  Start:      {args.start}")
+    print(f"  End:        {args.end}")
+    print(f"  Step:       {cfg['metricstep']}s")
+    print(f"  ES:         {cfg['eshost'] or 'local'}")
+    print(f"  Index:      {cfg['esindex']}")
+    print(f"  Profiles:   {cfg['profiles']}")
+    print(f"{'='*60}\n")
+
+    _scrape_metrics(cfg["uuid"], args.start, args.end, cfg)
+
+    print(f"\n{'='*60}")
+    print("[LCS] Metrics indexing complete.")
+    print(f"{'='*60}")
+
+
+def main():
+    """Parse CLI arguments and dispatch to run or index action."""
+    parser = argparse.ArgumentParser(
+        prog="lcs-load-generator",
+        description="Load generator for LightSpeed Core Service",
+    )
+    parser.add_argument("-D", action="store_true", help="print debugging logs")
+    parser.add_argument("-W", action="store_true", help="quieter log output")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # --- run subcommand ---
+    run_parser = subparsers.add_parser("run", help="Run load tests on all LCS endpoints")
+    run_parser.add_argument("--host", default="", help="LCS endpoint URL (env: LCS_HOST)")
+    run_parser.add_argument("--token", default="", help="LCS auth token (env: LCS_TOKEN)")
+    run_parser.add_argument("--provider", default="", help="LLM provider name (env: LCS_PROVIDER)")
+    run_parser.add_argument("--model", default="", help="LLM model name (env: LCS_MODEL)")
+    run_parser.add_argument("--users", type=int, default=0, help="Concurrent users (env: LOCUST_USERS)")
+    run_parser.add_argument("--duration", default="", help="Test duration e.g. 5m (env: LOCUST_RUN_TIME)")
+    run_parser.add_argument("--uuid", default="", help="Test UUID (env: TEST_UUID)")
+    run_parser.add_argument("--request-timeout", type=int, default=0, help="Per-request timeout in seconds (env: REQUEST_TIMEOUT)")
+    run_parser.add_argument("--eshost", default="", help="OpenSearch/Elasticsearch URL (env: ES_SERVER)")
+    run_parser.add_argument("--esindex", default="", help="ES index name (env: ES_INDEX)")
+    run_parser.add_argument("--processes", type=int, default=0, help="Locust worker processes (env: LOCUST_PROCESSES)")
+    run_parser.add_argument("--results-dir", default="", help="Results directory (env: RESULTS_DIR)")
+    run_parser.add_argument("--questions-file", default="", help="Path to questions YAML (env: QUESTIONS_FILE)")
+    run_parser.add_argument("--locustfile", default="", help="Path to locustfile.py")
+    run_parser.add_argument("--metricstep", default="", help="Prometheus query step in seconds (env: METRIC_STEP)")
+    run_parser.add_argument("--profiles", default="", help="Comma-separated metric profile YAMLs (env: PROFILES)")
+
+    # --- index subcommand ---
+    index_parser = subparsers.add_parser("index", help="Scrape Prometheus metrics and index (standalone)")
+    index_parser.add_argument("--start", type=int, required=True, help="Start time (Unix epoch seconds)")
+    index_parser.add_argument("--end", type=int, required=True, help="End time (Unix epoch seconds)")
+    index_parser.add_argument("--uuid", default="", help="Test UUID (env: TEST_UUID)")
+    index_parser.add_argument("--eshost", default="", help="OpenSearch/Elasticsearch URL (env: ES_SERVER)")
+    index_parser.add_argument("--esindex", default="", help="ES index name (env: ES_INDEX)")
+    index_parser.add_argument("--metricstep", default="", help="Prometheus query step in seconds (env: METRIC_STEP)")
+    index_parser.add_argument("--profiles", default="", help="Comma-separated metric profile YAMLs (env: PROFILES)")
+    index_parser.add_argument("--results-dir", default="", help="Results directory for local indexing (env: RESULTS_DIR)")
+
+    args = parser.parse_args()
+    _setup_logging(debug=args.D, quiet=args.W)
+
+    if args.command == "run":
+        run_action(args)
+    elif args.command == "index":
+        index_action(args)
+
+
+if __name__ == "__main__":
+    main()
