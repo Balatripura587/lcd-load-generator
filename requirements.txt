@@ -1,0 +1,4 @@
+locust==2.32.4
+pyyaml>=6.0
+kubernetes>=29.0.0
+opensearch-py>=2.0.0

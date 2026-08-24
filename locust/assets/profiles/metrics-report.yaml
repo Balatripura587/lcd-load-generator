@@ -1,0 +1,84 @@
+---
+# LCS aggregate metrics (instant queries over test duration)
+
+# CPU — avg and max across LCS containers
+- query: avg(avg_over_time(irate(container_cpu_usage_seconds_total{name!="", namespace=~"{{.LCS_NAMESPACE}}", container!="POD"}[2m])[{{.elapsed}}:])) by (container)
+  metricName: avg-cpu-lcs
+  instant: true
+
+- query: max(max_over_time(irate(container_cpu_usage_seconds_total{name!="", namespace=~"{{.LCS_NAMESPACE}}", container!="POD"}[2m])[{{.elapsed}}:])) by (container)
+  metricName: max-cpu-lcs
+  instant: true
+
+# Memory RSS — avg and max across LCS containers
+- query: avg(avg_over_time(container_memory_rss{name!="", namespace=~"{{.LCS_NAMESPACE}}", container!="POD"}[{{.elapsed}}:])) by (container)
+  metricName: avg-memory-lcs
+  instant: true
+
+- query: max(avg_over_time(container_memory_rss{name!="", namespace=~"{{.LCS_NAMESPACE}}", container!="POD"}[{{.elapsed}}:])) by (container)
+  metricName: max-memory-lcs
+  instant: true
+
+# CPU throttling
+- query: max(max_over_time(rate(container_cpu_cfs_throttled_seconds_total{name!="", namespace=~"{{.LCS_NAMESPACE}}", container!="POD"}[2m])[{{.elapsed}}:])) by (container)
+  metricName: max-cpu-throttled-lcs
+  instant: true
+
+# Pod restarts
+- query: sum(kube_pod_container_status_restarts_total{namespace=~"{{.LCS_NAMESPACE}}"}) by (pod, container, namespace)
+  metricName: pod-restarts
+  instant: true
+
+# LLM validation errors
+- query: max(max_over_time(rate(ls_llm_validation_errors_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, endpoint)
+  metricName: max-llm-validation-errors
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_llm_validation_errors_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, endpoint)
+  metricName: avg-llm-validation-errors
+  instant: true
+
+# LLM tokens sent
+- query: max(max_over_time(rate(ls_llm_token_sent_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: max-llm-token-sent
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_llm_token_sent_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: avg-llm-token-sent
+  instant: true
+
+# LLM tokens received
+- query: max(max_over_time(rate(ls_llm_token_received_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: max-llm-token-received
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_llm_token_received_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: avg-llm-token-received
+  instant: true
+
+# REST API calls
+- query: max(max_over_time(rate(ls_rest_api_calls_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, path, status_code)
+  metricName: max-rest-api-calls-total
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_rest_api_calls_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, path, status_code)
+  metricName: avg-rest-api-calls-total
+  instant: true
+
+# LLM calls total
+- query: max(max_over_time(rate(ls_llm_calls_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: max-llm-calls-total
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_llm_calls_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: avg-llm-calls-total
+  instant: true
+
+# LLM call failures
+- query: max(max_over_time(rate(ls_llm_calls_failures_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: max-llm-call-failures
+  instant: true
+
+- query: avg(avg_over_time(rate(ls_llm_calls_failures_total[2m])[{{.elapsed}}:])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: avg-llm-call-failures
+  instant: true

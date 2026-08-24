@@ -1,0 +1,101 @@
+---
+# LCS time-series metrics (range queries at configured step interval)
+
+# Container CPU and memory per pod
+- query: (sum(irate(container_cpu_usage_seconds_total{name!="",container!~"POD|",namespace=~"{{.LCS_NAMESPACE}}"}[2m]) * 100) by (container, pod, namespace, node)) > 0
+  metricName: containerCPU
+
+- query: sum(container_memory_rss{name!="",container!~"POD|",namespace=~"{{.LCS_NAMESPACE}}"}) by (container, pod, namespace, node)
+  metricName: containerMemory
+
+# CPU throttling over time
+- query: sum(rate(container_cpu_cfs_throttled_seconds_total{name!="",container!~"POD|",namespace=~"{{.LCS_NAMESPACE}}"}[2m])) by (container, pod, namespace)
+  metricName: cpuThrottling
+
+# Pod restarts over time
+- query: sum(increase(kube_pod_container_status_restarts_total{namespace=~"{{.LCS_NAMESPACE}}"}[30s])) by (pod, container)
+  metricName: podRestarts
+
+# LLM application metrics (ls_* counters exposed by LCS)
+- query: sum(rate(ls_llm_validation_errors_total[2m])) by (pod, container, namespace, endpoint)
+  metricName: llmValidationErrors
+
+- query: sum(rate(ls_llm_token_sent_total[2m])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: llmTokenSent
+
+- query: sum(rate(ls_llm_token_received_total[2m])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: llmTokenReceived
+
+- query: sum(rate(ls_llm_calls_total[2m])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: llmCallsTotal
+
+- query: sum(rate(ls_rest_api_calls_total[2m])) by (pod, container, namespace, path, status_code)
+  metricName: restApiCallsTotal
+
+- query: sum(rate(ls_llm_calls_failures_total[2m])) by (pod, container, namespace, provider, model, endpoint)
+  metricName: llmCallFailures
+
+# Response duration histograms (ls_response_duration_seconds)
+- query: histogram_quantile(0.50, sum by (le, path, container, pod, namespace) (rate(ls_response_duration_seconds_bucket[2m])))
+  metricName: p50ResponseDuration
+
+- query: sum by (path, container, pod, namespace) (rate(ls_response_duration_seconds_sum[2m])) / sum by (path, container, pod, namespace) (rate(ls_response_duration_seconds_count[2m]))
+  metricName: avgResponseDuration
+
+- query: histogram_quantile(0.95, sum by (le, path, container, pod, namespace) (rate(ls_response_duration_seconds_bucket[2m])))
+  metricName: p95ResponseDuration
+
+- query: histogram_quantile(0.99, sum by (le, path, container, pod, namespace) (rate(ls_response_duration_seconds_bucket[2m])))
+  metricName: p99ResponseDuration
+
+- query: histogram_quantile(1.0, sum by (le, path, container, pod, namespace) (rate(ls_response_duration_seconds_bucket[2m])))
+  metricName: maxResponseDuration
+
+# LLM inference duration histograms (ls_llm_inference_duration_seconds — LCS-only, OLS doesn't have this)
+- query: histogram_quantile(0.50, sum by (le, provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_bucket[2m])))
+  metricName: p50LlmInferenceDuration
+
+- query: sum by (provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_sum[2m])) / sum by (provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_count[2m]))
+  metricName: avgLlmInferenceDuration
+
+- query: histogram_quantile(0.95, sum by (le, provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_bucket[2m])))
+  metricName: p95LlmInferenceDuration
+
+- query: histogram_quantile(0.99, sum by (le, provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_bucket[2m])))
+  metricName: p99LlmInferenceDuration
+
+- query: histogram_quantile(1.0, sum by (le, provider, model, endpoint, container, pod, namespace) (rate(ls_llm_inference_duration_seconds_bucket[2m])))
+  metricName: maxLlmInferenceDuration
+
+# Aggregated worker-node CPU and memory
+- query: (avg(irate(container_cpu_usage_seconds_total{name!="",container!~"POD|",namespace=~"{{.LCS_NAMESPACE}}"}[2m]) * 100 and on (node) kube_node_role{role="worker"}) by (namespace, container)) > 0
+  metricName: containerCPU-AggregatedWorkers
+
+- query: avg(container_memory_rss{name!="",container!~"POD|",namespace=~"{{.LCS_NAMESPACE}}"} and on (node) kube_node_role{role="worker"}) by (container, namespace)
+  metricName: containerMemory-AggregatedWorkers
+
+# Node networking — at the node level where LCS pods run
+- query: sum(irate(node_network_receive_bytes_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkReceiveBytes
+
+- query: sum(irate(node_network_transmit_bytes_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkTransmitBytes
+
+- query: sum(irate(node_network_receive_packets_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkReceivePackets
+
+- query: sum(irate(node_network_transmit_packets_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkTransmitPackets
+
+- query: sum(irate(node_network_receive_drop_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkReceiveDrops
+
+- query: sum(irate(node_network_transmit_drop_total{device!~"veth.*|lo"}[2m])) by (instance, device)
+  metricName: nodeNetworkTransmitDrops
+
+# Conntrack — connection tracking table usage
+- query: node_nf_conntrack_entries by (instance)
+  metricName: conntrackEntries
+
+- query: node_nf_conntrack_entries_limit by (instance)
+  metricName: conntrackEntriesLimit
