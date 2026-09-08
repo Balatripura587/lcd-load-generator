@@ -1,0 +1,520 @@
+{
+  "title": "LCS Load Test Results",
+  "uid": "lcs-load-test-results",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-2d", "to": "now" },
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "Datasource",
+        "options": [],
+        "query": "elasticsearch",
+        "refresh": 1,
+        "regex": "/(.*LCS.*)/",
+        "type": "datasource"
+      },
+      {
+        "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+        "definition": "{\"find\": \"terms\", \"field\": \"duration.keyword\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "duration",
+        "multi": true,
+        "name": "duration",
+        "query": "{\"find\": \"terms\", \"field\": \"duration.keyword\"}",
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+        "definition": "{\"find\": \"terms\", \"field\": \"users\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "users",
+        "multi": true,
+        "name": "users",
+        "query": "{\"find\": \"terms\", \"field\": \"users\"}",
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+        "definition": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "uuid",
+        "query": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+        "definition": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "targets",
+        "multi": true,
+        "name": "targets",
+        "query": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "refresh": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "HTTP Benchmarking Summary",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 2,
+      "options": { "barWidth": 0.95, "legend": { "displayMode": "list", "placement": "right", "showLegend": false } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
+        "metrics": [{ "field": "p99Latency", "id": "1", "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "P99 Latency: $uuid",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "barWidth": 0.97, "legend": { "displayMode": "list", "placement": "right", "showLegend": false } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
+        "metrics": [{ "field": "throughput", "id": "1", "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Average Throughput: $uuid",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "id": 4,
+      "options": { "barWidth": 0.97, "legend": { "displayMode": "list", "placement": "right", "showLegend": false } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
+        "metrics": [{ "field": "statusCodes.200", "id": "1", "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "2XX Responses: $uuid",
+      "type": "barchart"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "id": 5,
+      "options": { "barWidth": 0.97, "legend": { "displayMode": "list", "placement": "right", "showLegend": false } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
+        "metrics": [{ "field": "statusCodes.error", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Error Responses: $uuid",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "id": 6,
+      "title": "Target Details",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 18 },
+      "id": 7,
+      "options": { "cellHeight": "sm", "footer": { "show": false }, "showHeader": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [],
+        "metrics": [{ "id": "1", "settings": { "size": "500" }, "type": "raw_data" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "$targets summary",
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["uuid", "metricName", "requests", "throughput", "elapsedTime", "timestamp", "endTimestamp", "users"] } } }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 8,
+      "title": "Rate, Throughput, Total Requests",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0 } },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "id": 9,
+      "options": { "displayMode": "basic", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "users", "id": "1", "settings": { "missing": "0" }, "type": "sum" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Concurrent Users: $targets",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "min": 0 } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "id": 10,
+      "options": { "displayMode": "basic", "orientation": "auto", "reduceOptions": { "calcs": [], "values": true }, "showUnfilled": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "throughput", "id": "1", "settings": { "missing": "0" }, "type": "sum" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Throughput: $targets",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "none", "min": 0 } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "id": 11,
+      "options": { "displayMode": "basic", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "requests", "id": "1", "settings": { "missing": "0" }, "type": "sum" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Total Requests: $targets",
+      "type": "bargauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 12,
+      "title": "Latencies Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 33 },
+      "id": 13,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "avgLatency", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Avg Latency: $targets",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 33 },
+      "id": 14,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "p95Latency", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "P95 Latency: $targets",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 33 },
+      "id": 15,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "p99Latency", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "P99 Latency: $targets",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 33 },
+      "id": 16,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "repeat": "targets",
+      "repeatDirection": "v",
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "maxLatency", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: $targets",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Max Latency: $targets",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 17,
+      "title": "TTFT & Streaming (post_streaming_query only)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 41 },
+      "id": 18,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "ttft_p50", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: post_streaming_query",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "TTFT P50",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 41 },
+      "id": 19,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "ttft_p95", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: post_streaming_query",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "TTFT P95",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 41 },
+      "id": 20,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "ttft_p99", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: post_streaming_query",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "TTFT P99",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "thresholds": { "mode": "percentage", "steps": [{ "color": "green" }, { "color": "orange", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 41 },
+      "id": 21,
+      "options": { "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showThresholdMarkers": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "ttft_avg", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName.keyword: post_streaming_query",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "TTFT Avg",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
+      "id": 22,
+      "title": "CPU & Memory Over Time",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 49 },
+      "id": 23,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [
+          { "field": "labels.pod.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" },
+          { "field": "labels.container.keyword", "id": "3", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" },
+          { "field": "timestamp", "id": "4", "settings": { "interval": "auto", "min_doc_count": "0" }, "type": "date_histogram" }
+        ],
+        "metrics": [{ "field": "value", "id": "1", "type": "avg" }],
+        "query": "uuid.keyword: $uuid AND metricName.keyword: containerCPU",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Container CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 49 },
+      "id": 24,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true } },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [
+          { "field": "labels.pod.keyword", "id": "3", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" },
+          { "field": "labels.container.keyword", "id": "4", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" },
+          { "field": "timestamp", "id": "2", "settings": { "interval": "auto" }, "type": "date_histogram" }
+        ],
+        "metrics": [{ "field": "value", "id": "1", "type": "avg" }],
+        "query": "uuid.keyword: $uuid AND metricName.keyword: containerMemory",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Container Memory",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 },
+      "id": 25,
+      "title": "CPU & Memory Aggregated",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 } },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 59 },
+      "id": 26,
+      "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-cpu-lcs",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Average CPU Usage",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 } },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 59 },
+      "id": 27,
+      "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
+        "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND metricName.keyword: max-cpu-lcs",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Max CPU Usage",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 63 },
+      "id": 28,
+      "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-memory-lcs",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Average Memory Usage",
+      "type": "bargauge"
+    },
+    {
+      "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 63 },
+      "id": 29,
+      "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
+      "targets": [{
+        "alias": "",
+        "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
+        "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
+        "query": "uuid.keyword:$uuid AND metricName.keyword: max-memory-lcs",
+        "refId": "A",
+        "timeField": "timestamp"
+      }],
+      "title": "Max Memory Usage",
+      "type": "bargauge"
+    }
+  ]
+}

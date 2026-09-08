@@ -246,3 +246,50 @@ envsubst < config/lcs-load-generator.yaml | oc apply -f -
 * `QUESTIONS_FILE`(Optional) - Path to questions YAML file. Defaults to bundled questions.
 * `PROMETHEUS_BACKEND`(Optional) - Prometheus backend to query. `prometheus` (default, uses `prometheus-k8s` route) or `thanos` (uses `thanos-querier` route, required for user namespaces).
 * `METRIC_STEP`(Optional) - Prometheus scrape step interval in seconds. Defaults to `30`.
+
+## Profiling
+
+Optional CPU and memory profiling can be enabled on the LCS deployment during load tests. Both are disabled by default with zero overhead.
+
+### Pyroscope (CPU flamegraphs)
+
+Requires `pyroscope-io` installed in LCS (dev dependency) and a Grafana Pyroscope server on the cluster.
+
+```bash
+# Deploy Grafana Pyroscope server
+oc apply -f <pyroscope-server.yaml>   # grafana/pyroscope:latest
+
+# Enable on LCS deployment
+oc set env deployment/lcs \
+  PYROSCOPE_SERVER_ADDRESS=http://pyroscope.<ns>.svc:4040 \
+  --containers=lcs -n <lcs-namespace>
+```
+
+Overhead: ~3-5% CPU. Safe to run alongside load tests. After the test, collect profiles with `collect-profiles.sh`.
+
+### Memray (memory flamegraphs)
+
+Requires `memray` installed in LCS (dev dependency). Override the LCS container command — no code changes needed.
+
+```bash
+oc patch deployment/lcs -n <lcs-namespace> --type=json -p='[{
+  "op": "add",
+  "path": "/spec/template/spec/containers/0/command",
+  "value": ["/app-root/.venv/bin/python", "-m", "memray", "run",
+             "--force", "-o", "/mnt/profiling/memray-lcs.bin",
+             "src/lightspeed_stack.py"]
+}]'
+```
+
+Overhead: ~50-100%. Run in dedicated memory profiling sessions only — do not use alongside performance measurement.
+
+### Collecting profiles locally
+
+```bash
+LCS_NAMESPACE=<ns> \
+PYROSCOPE_FROM=<epoch-start> \
+PYROSCOPE_UNTIL=<epoch-end> \
+  ./collect-profiles.sh
+```
+
+Outputs CPU pprof binary, flamegraph HTML, Memray binary and flamegraphs to `./profiling-results/<timestamp>/`.

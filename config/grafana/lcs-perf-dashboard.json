@@ -1,0 +1,194 @@
+{
+  "title": "LCS Performance Dashboard",
+  "uid": "lcs-perf-dashboard",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "LCS Container CPU (cores)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"openshift-lcs\",container=\"lcs\"}[2m]))",
+          "legendFormat": "LCS CPU"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Mock LLM Container CPU (cores)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"openshift-lcs\",container=\"mock-llm-server\"}[2m]))",
+          "legendFormat": "Mock LLM CPU"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "LCS Memory RSS",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(container_memory_rss{namespace=\"openshift-lcs\",container=\"lcs\"})",
+          "legendFormat": "LCS Memory RSS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "LCS Memory Working Set",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"openshift-lcs\",container=\"lcs\"})",
+          "legendFormat": "LCS Working Set"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"openshift-lcs\",container=\"mock-llm-server\"})",
+          "legendFormat": "Mock LLM Working Set"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "CPU Throttle Ratio",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(rate(container_cpu_cfs_throttled_seconds_total{namespace=\"openshift-lcs\",container=\"lcs\"}[2m])) / sum(rate(container_cpu_cfs_periods_total{namespace=\"openshift-lcs\",container=\"lcs\"}[2m])) * 100",
+          "legendFormat": "Throttle %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Pod Restarts",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 16, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "kube_pod_container_status_restarts_total{namespace=\"openshift-lcs\"}",
+          "legendFormat": "{{container}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Network Receive (openshift-lcs)",
+      "type": "timeseries",
+      "gridPos": { "x": 18, "y": 16, "w": 6, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"openshift-lcs\"}[2m]))",
+          "legendFormat": "RX"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Network Transmit (openshift-lcs)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"openshift-lcs\"}[2m]))",
+          "legendFormat": "TX"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Mock LLM Memory RSS",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(container_memory_rss{namespace=\"openshift-lcs\",container=\"mock-llm-server\"})",
+          "legendFormat": "Mock LLM Memory RSS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        }
+      }
+    }
+  ],
+  "schemaVersion": 38
+}

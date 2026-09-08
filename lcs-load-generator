@@ -194,10 +194,20 @@ def _scrape_metrics(test_uuid, start, end, cfg):
 
     profile_list = [p.strip() for p in cfg["profiles"].split(",") if p.strip()]
 
+    # kube-burner needs: relative filename (not absolute path) + writable cwd
+    # Copy profiles to results_dir (writable) so kube-burner can find them
+    # and also write its log file there
+    for profile_file in profile_list:
+        src = os.path.join(PROFILES_DIR, profile_file)
+        if not os.path.exists(src):
+            logger.warning("Metrics profile not found: %s", src)
+            continue
+        import shutil as _shutil
+        _shutil.copy2(src, cfg["results_dir"])
+
     for profile_file in profile_list:
         profile_path = os.path.join(PROFILES_DIR, profile_file)
         if not os.path.exists(profile_path):
-            logger.warning("Metrics profile not found: %s", profile_path)
             continue
 
         profile_name = os.path.splitext(profile_file)[0]
@@ -211,7 +221,7 @@ def _scrape_metrics(test_uuid, start, end, cfg):
             "--start", str(start_padded),
             "--end", str(end_padded),
             "--step", cfg["metricstep"] + "s" if cfg["metricstep"].isdigit() else cfg["metricstep"],
-            "--metrics-profile", profile_path,
+            "--metrics-profile", profile_file,
             "--job-name", "lcs-locust",
         ]
 
@@ -222,9 +232,10 @@ def _scrape_metrics(test_uuid, start, end, cfg):
             ])
         else:
             metrics_dir = os.path.join(cfg["results_dir"], f"collected-metrics-{test_uuid}")
-            cmd.extend(["--local-indexing", "--metrics-directory", metrics_dir])
+            cmd.extend(["--metrics-directory", metrics_dir])
 
         logger.debug("kube-burner command: %s", " ".join(cmd))
+        # cwd=results_dir: writable (for kube-burner log file) + profiles copied here
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=cfg["results_dir"])
         if result.returncode != 0:
             logger.warning(

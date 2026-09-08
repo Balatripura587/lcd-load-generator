@@ -1,0 +1,278 @@
+{
+  "title": "LCS Locust Results Dashboard",
+  "uid": "lcs-locust-results",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Query p50 / p95 / p99 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "p50",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p50Latency", "id": "1", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "p95",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p95Latency", "id": "3", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "p99",
+          "bucketAggs": [{ "field": "timestamp", "id": "6", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p99Latency", "id": "5", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "C",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Streaming p50 / p95 / p99 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "p50",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p50Latency", "id": "1", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "p95",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p95Latency", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "p99",
+          "bucketAggs": [{ "field": "timestamp", "id": "6", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "p99Latency", "id": "5", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "C",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 }
+      }
+    },
+    {
+      "id": 3,
+      "title": "TTFT p50 / p95 / p99 (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "TTFT p50",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "ttft_p50", "id": "1", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "TTFT p95",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "ttft_p95", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "TTFT p99",
+          "bucketAggs": [{ "field": "timestamp", "id": "6", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "ttft_p99", "id": "5", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "C",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Full Stream Time p50 / p95 / p99 (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "streamTime p50",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "streamTime_p50", "id": "1", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "streamTime p95",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "streamTime_p95", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "streamTime p99",
+          "bucketAggs": [{ "field": "timestamp", "id": "6", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "streamTime_p99", "id": "5", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "C",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Throughput (req/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "query throughput",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "throughput", "id": "1", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "streaming throughput",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "throughput", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "min": 0 }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Total Requests",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "query requests",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "requests", "id": "1", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "streaming requests",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "requests", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Avg Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "query avg",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "avgLatency", "id": "1", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        },
+        {
+          "alias": "streaming avg",
+          "bucketAggs": [{ "field": "timestamp", "id": "4", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "avgLatency", "id": "3", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "B",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "min": 0 }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Concurrent Users",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 24, "w": 6, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "users",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "users", "id": "1", "type": "max" }],
+          "query": "metricName:post_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 9,
+      "title": "TTFT avg (ms)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 24, "w": 6, "h": 8 },
+      "datasource": { "type": "elasticsearch", "uid": "PA801FE6A79902023" },
+      "targets": [
+        {
+          "alias": "TTFT avg",
+          "bucketAggs": [{ "field": "timestamp", "id": "2", "type": "date_histogram", "settings": { "interval": "auto" } }],
+          "metrics": [{ "field": "ttft_avg", "id": "1", "type": "max" }],
+          "query": "metricName:post_streaming_query",
+          "refId": "A",
+          "timeField": "timestamp"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    }
+  ],
+  "schemaVersion": 38
+}

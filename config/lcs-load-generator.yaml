@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: lcs-load-generator-serviceaccount
-  namespace: ${LCS_NAMESPACE}
+  namespace: lcs-perf-testing
 rules:
   - apiGroups: ["extensions", "apps", "batch", "security.openshift.io", "policy"]
     resources: ["deployments", "jobs", "pods", "services", "jobs/status",
@@ -14,7 +14,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: lcs-load-generator-role
-  namespace: ${LCS_NAMESPACE}
+  namespace: lcs-perf-testing
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -27,7 +27,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: lcs-load-generator
-  namespace: ${LCS_NAMESPACE}
+  namespace: lcs-perf-testing
   labels:
     app: lcs-load-generator
 spec:
@@ -52,25 +52,25 @@ spec:
             - name: KUBECONFIG
               value: "/etc/kubeconfig/kubeconfig"
             - name: LCS_NAMESPACE
-              value: "${LCS_NAMESPACE}"
+              value: "openshift-lcs"
             - name: LCS_HOST
-              value: "${LCS_HOST}"
+              value: "http://lcs.openshift-lcs.svc.cluster.local:8080"
             - name: LCS_TOKEN
-              value: "${LCS_TOKEN}"
+              value: ""
             - name: LCS_PROVIDER
-              value: "${LCS_PROVIDER}"
+              value: "openai"
             - name: LCS_MODEL
-              value: "${LCS_MODEL}"
+              value: "granite-3.1-8b-instruct"
             - name: LOCUST_USERS
               value: "${LOCUST_USERS}"
             - name: LOCUST_RUN_TIME
               value: "${LOCUST_RUN_TIME}"
             - name: LOCUST_PROCESSES
-              value: "${LOCUST_PROCESSES}"
+              value: "1"
             - name: TEST_UUID
               value: ""
             - name: REQUEST_TIMEOUT
-              value: "${REQUEST_TIMEOUT}"
+              value: "120"
             - name: RESULTS_DIR
               value: "/results"
             - name: QUESTIONS_FILE
@@ -78,9 +78,9 @@ spec:
             - name: ES_SERVER
               value: "${ES_SERVER}"
             - name: ES_INDEX
-              value: "${ES_INDEX}"
+              value: "lcs-perf-results"
             - name: METRIC_STEP
-              value: "${METRIC_STEP}"
+              value: "30"
           resources:
             requests:
               cpu: "250m"
