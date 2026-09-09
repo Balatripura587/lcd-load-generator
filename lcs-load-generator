@@ -26,7 +26,7 @@ _candidate = os.path.join(SCRIPT_DIR, "locust")
 LOCUST_DIR = _candidate if os.path.isdir(_candidate) else SCRIPT_DIR
 PROFILES_DIR = os.path.join(LOCUST_DIR, "assets", "profiles")
 
-ENDPOINTS = ["query", "streaming"]
+ENDPOINTS = ["query", "streaming", "responses", "streaming_responses"]
 
 DEFAULT_PROFILES = "metrics-report.yaml,metrics-timeseries.yaml"
 

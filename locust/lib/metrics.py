@@ -124,7 +124,12 @@ def on_test_stop(environment, **kwargs):
 
     # Use per-endpoint POST stats so streaming throughput/requests only count
     # actual HTTP requests not SSE sub-events.
-    endpoint_path = "/v1/streaming_query" if ENDPOINT_TYPE == "streaming" else "/v1/query"
+    endpoint_path = {
+        "query": "/v1/query",
+        "streaming": "/v1/streaming_query",
+        "responses": "/v1/responses",
+        "streaming_responses": "/v1/responses [streaming]",
+    }.get(ENDPOINT_TYPE, "/v1/query")
     stats = environment.stats.get(endpoint_path, "POST")
     if stats is None or stats.num_requests == 0:
         # Fall back to aggregate if specific entry not found

@@ -36,6 +36,8 @@ def _status_codes(stats, environment):
 METRIC_NAMES = {
     "query": "post_query",
     "streaming": "post_streaming_query",
+    "responses": "post_responses",
+    "streaming_responses": "post_streaming_responses",
 }
 
 
@@ -81,7 +83,7 @@ def build_result_document(
     results["bytesIn"] = avg_in
     results["bytesOut"] = avg_out
 
-    if ENDPOINT_TYPE == "streaming":
+    if ENDPOINT_TYPE in ("streaming", "streaming_responses"):
         results.update(_percentiles(ttft_samples, "ttft"))
     results.update(_percentiles(stream_time_samples, "streamTime"))
 
