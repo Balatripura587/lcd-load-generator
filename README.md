@@ -2,7 +2,18 @@
 
 Load generator tool for [LightSpeed Core Service (LCS)](https://github.com/lightspeed-core/lightspeed-stack) using [Locust](https://locust.io/).
 
-Simulates multiple user sessions to perform duration-based load tests with configurable parallelism. Runs LCS endpoints (query, streaming) sequentially in a single invocation, collecting latency, throughput, and HTTP status code metrics per endpoint.
+Simulates multiple user sessions to perform duration-based load tests with configurable parallelism. Runs LCS endpoints sequentially in a single invocation, collecting latency, throughput, TTFT, and HTTP status code metrics per endpoint.
+
+Supported endpoints:
+
+| Endpoint type | Path | Notes |
+|---|---|---|
+| `query` | `POST /v1/query` | Non-streaming |
+| `streaming` | `POST /v1/streaming_query` | SSE, TTFT tracked |
+| `responses` | `POST /v1/responses` `stream=false` | OpenAI-compatible Responses API |
+| `streaming_responses` | `POST /v1/responses` `stream=true` | OpenAI-compatible SSE, TTFT tracked |
+
+Works with both **library mode** and **server mode** LCS deployments. The load generator only needs the LCS HTTP URL (`LCS_HOST`) — set it to whichever URL LCS is listening on
 
 ## Prerequisites
 
