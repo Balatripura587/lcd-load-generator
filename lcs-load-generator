@@ -194,6 +194,15 @@ def _scrape_metrics(test_uuid, start, end, cfg):
 
     profile_list = [p.strip() for p in cfg["profiles"].split(",") if p.strip()]
 
+    # kube-burner --metrics-profile only accepts relative filenames (not absolute paths).
+    # Absolute paths trigger an HTTP GET → "unsupported protocol scheme".
+    # Copy profiles to results_dir (writable) so kube-burner can find them by filename,
+    # and also write its own log file there.
+    for profile_file in profile_list:
+        src = os.path.join(PROFILES_DIR, profile_file)
+        if os.path.exists(src):
+            shutil.copy2(src, cfg["results_dir"])
+
     for profile_file in profile_list:
         profile_path = os.path.join(PROFILES_DIR, profile_file)
         if not os.path.exists(profile_path):
@@ -211,7 +220,7 @@ def _scrape_metrics(test_uuid, start, end, cfg):
             "--start", str(start_padded),
             "--end", str(end_padded),
             "--step", cfg["metricstep"] + "s" if cfg["metricstep"].isdigit() else cfg["metricstep"],
-            "--metrics-profile", profile_path,
+            "--metrics-profile", profile_file,
             "--job-name", "lcs-locust",
         ]
 
@@ -222,7 +231,7 @@ def _scrape_metrics(test_uuid, start, end, cfg):
             ])
         else:
             metrics_dir = os.path.join(cfg["results_dir"], f"collected-metrics-{test_uuid}")
-            cmd.extend(["--local-indexing", "--metrics-directory", metrics_dir])
+            cmd.extend(["--metrics-directory", metrics_dir])
 
         logger.debug("kube-burner command: %s", " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=cfg["results_dir"])
