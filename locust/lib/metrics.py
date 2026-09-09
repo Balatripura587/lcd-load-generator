@@ -121,7 +121,14 @@ def on_test_stop(environment, **kwargs):
 
     test_end_time = time.time()
     elapsed = test_end_time - _test_start_time
-    stats = environment.stats.total
+
+    # Use per-endpoint POST stats so streaming throughput/requests only count
+    # actual HTTP requests not SSE sub-events.
+    endpoint_path = "/v1/streaming_query" if ENDPOINT_TYPE == "streaming" else "/v1/query"
+    stats = environment.stats.get(endpoint_path, "POST")
+    if stats is None or stats.num_requests == 0:
+        # Fall back to aggregate if specific entry not found
+        stats = environment.stats.total
 
     if isinstance(environment.runner, MasterRunner):
         ttft = _aggregated_ttft_samples
