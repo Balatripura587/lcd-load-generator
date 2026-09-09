@@ -45,24 +45,24 @@
       },
       {
         "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
-        "definition": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "definition": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)\"}",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "uuid",
-        "query": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "query": "{\"find\": \"terms\", \"field\": \"uuid.keyword\", \"query\":\"duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)\"}",
         "refresh": 2,
         "type": "query"
       },
       {
         "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
-        "definition": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "definition": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)\"}",
         "hide": 0,
         "includeAll": true,
         "label": "targets",
         "multi": true,
         "name": "targets",
-        "query": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users\"}",
+        "query": "{\"find\": \"terms\", \"field\": \"metricName.keyword\", \"query\":\"duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)\"}",
         "refresh": 1,
         "type": "query"
       }
@@ -86,7 +86,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
         "metrics": [{ "field": "p99Latency", "id": "1", "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -103,7 +103,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
         "metrics": [{ "field": "throughput", "id": "1", "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -120,7 +120,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
         "metrics": [{ "field": "statusCodes.200", "id": "1", "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -137,7 +137,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "metricName.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
         "metrics": [{ "field": "statusCodes.error", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users",
+        "query": "uuid.keyword:$uuid AND duration: $duration AND users: $users AND metricName:(post_query OR post_streaming_query)",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -450,7 +450,7 @@
     },
     {
       "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
-      "fieldConfig": { "defaults": { "unit": "short", "min": 0 } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 2, "min": 0 } },
       "gridPos": { "h": 4, "w": 12, "x": 0, "y": 59 },
       "id": 26,
       "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
@@ -458,7 +458,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
         "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-cpu-lcs",
+        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-cpu-lcs AND labels.container: lcs",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -467,7 +467,7 @@
     },
     {
       "datasource": { "type": "elasticsearch", "uid": "${Datasource}" },
-      "fieldConfig": { "defaults": { "unit": "short", "min": 0 } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 2, "min": 0 } },
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 59 },
       "id": 27,
       "options": { "displayMode": "basic", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "values": true }, "showUnfilled": true },
@@ -475,7 +475,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "10" }, "type": "terms" }],
         "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND metricName.keyword: max-cpu-lcs",
+        "query": "uuid.keyword:$uuid AND metricName.keyword: max-cpu-lcs AND labels.container: lcs",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -492,7 +492,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
         "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-memory-lcs",
+        "query": "uuid.keyword:$uuid AND metricName.keyword: avg-memory-lcs AND labels.container: lcs",
         "refId": "A",
         "timeField": "timestamp"
       }],
@@ -509,7 +509,7 @@
         "alias": "",
         "bucketAggs": [{ "field": "uuid.keyword", "id": "2", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_term", "size": "0" }, "type": "terms" }],
         "metrics": [{ "field": "value", "id": "1", "settings": { "missing": "0" }, "type": "avg" }],
-        "query": "uuid.keyword:$uuid AND metricName.keyword: max-memory-lcs",
+        "query": "uuid.keyword:$uuid AND metricName.keyword: max-memory-lcs AND labels.container: lcs",
         "refId": "A",
         "timeField": "timestamp"
       }],
