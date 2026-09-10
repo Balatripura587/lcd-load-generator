@@ -4,6 +4,9 @@ import os
 import uuid
 
 ENDPOINT_TYPE = os.environ.get("ENDPOINT_TYPE", "query").lower()
+VALID_ENDPOINT_TYPES = {"query", "streaming", "responses", "streaming_responses"}
+if ENDPOINT_TYPE not in VALID_ENDPOINT_TYPES:
+    raise ValueError(f"Unsupported ENDPOINT_TYPE: {ENDPOINT_TYPE}. Expected one of {sorted(VALID_ENDPOINT_TYPES)}")
 LCS_TOKEN = os.environ.get("LCS_TOKEN", "")
 LCS_PROVIDER = os.environ.get("LCS_PROVIDER", "openai")
 LCS_MODEL = os.environ.get("LCS_MODEL", "granite-3.1-8b-instruct")
